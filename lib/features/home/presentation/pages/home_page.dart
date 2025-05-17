@@ -112,7 +112,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             Text(
-                              'your local ip address',
+                              'your ip address',
                               style: TextStyle(
                                 color: AppColors.textD,
                                 fontSize: 10,
@@ -211,6 +211,11 @@ class _HomePageState extends State<HomePage> {
                         mockModel!.mockModels[index].statusCode = int.parse(
                           value,
                         );
+                        await save();
+                        setState(() {});
+                      },
+                      onChangedDelay: (value) async {
+                        mockModel!.mockModels[index].delay = int.parse(value);
                         await save();
                         setState(() {});
                       },
@@ -345,55 +350,61 @@ class _HomePageState extends State<HomePage> {
   shelf_router.Router getRouter(String method, MockModel mockModel) {
     switch (method) {
       case 'GET':
-        return shelf_router.Router()..get(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response(
-            mockModel.statusCode,
-            headers: mockModel.responseHeader,
-            body: mockModel.responseBody,
-          ),
-        );
+        return shelf_router.Router()
+          ..get(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response(
+              mockModel.statusCode,
+              headers: mockModel.responseHeader,
+              body: mockModel.responseBody,
+            );
+          });
       case 'POST':
-        return shelf_router.Router()..post(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response(
-            mockModel.statusCode,
-            headers: mockModel.responseHeader,
-            body: mockModel.responseBody,
-          ),
-        );
+        return shelf_router.Router()
+          ..post(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response(
+              mockModel.statusCode,
+              headers: mockModel.responseHeader,
+              body: mockModel.responseBody,
+            );
+          });
       case 'PUT':
-        return shelf_router.Router()..put(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response(
-            mockModel.statusCode,
-            headers: mockModel.responseHeader,
-            body: mockModel.responseBody,
-          ),
-        );
+        return shelf_router.Router()
+          ..put(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response(
+              mockModel.statusCode,
+              headers: mockModel.responseHeader,
+              body: mockModel.responseBody,
+            );
+          });
       case 'PATCH':
-        return shelf_router.Router()..patch(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response(
-            mockModel.statusCode,
-            headers: mockModel.responseHeader,
-            body: mockModel.responseBody,
-          ),
-        );
+        return shelf_router.Router()
+          ..patch(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response(
+              mockModel.statusCode,
+              headers: mockModel.responseHeader,
+              body: mockModel.responseBody,
+            );
+          });
       case 'DELETE':
-        return shelf_router.Router()..delete(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response(
-            mockModel.statusCode,
-            headers: mockModel.responseHeader,
-            body: mockModel.responseBody,
-          ),
-        );
+        return shelf_router.Router()
+          ..delete(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response(
+              mockModel.statusCode,
+              headers: mockModel.responseHeader,
+              body: mockModel.responseBody,
+            );
+          });
       default:
-        return shelf_router.Router()..get(
-          mockModel.endpoint,
-          (shelf.Request request) => shelf.Response.ok('This is custom route'),
-        );
+        return shelf_router.Router()
+          ..get(mockModel.endpoint, (shelf.Request request) async {
+            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
+            return shelf.Response.ok('This is custom route');
+          });
     }
   }
 

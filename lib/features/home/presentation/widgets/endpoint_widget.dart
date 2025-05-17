@@ -18,6 +18,7 @@ class EndpointWidget extends StatefulWidget {
   final void Function(String)? onChangedHeaderResponse;
   final void Function(String)? onChangedBodyResponse;
   final void Function(String)? onChangedMethod;
+  final void Function(String)? onChangedDelay;
   final void Function()? onDelete;
 
   const EndpointWidget({
@@ -30,6 +31,7 @@ class EndpointWidget extends StatefulWidget {
     required this.onChangedHeaderResponse,
     required this.onChangedBodyResponse,
     required this.onChangedMethod,
+    required this.onChangedDelay,
     required this.onDelete,
   });
 
@@ -40,15 +42,20 @@ class EndpointWidget extends StatefulWidget {
 class _EndpointWidgetState extends State<EndpointWidget> {
   TextEditingController endpointController = TextEditingController();
   TextEditingController statusCodeController = TextEditingController();
+  TextEditingController delayCodeController = TextEditingController();
   CodeLineEditingController headerResponseController =
       CodeLineEditingController();
   CodeLineEditingController bodyResponseController =
       CodeLineEditingController();
+  bool showResponse = false;
 
   @override
   void initState() {
     endpointController.text = widget.mockModel.endpoint;
     statusCodeController.text = widget.mockModel.statusCode.toString();
+    if (widget.mockModel.delay != null) {
+      delayCodeController.text = widget.mockModel.delay.toString();
+    }
     headerResponseController.text =
         widget.mockModel.responseHeader == null
             ? ''
@@ -78,130 +85,217 @@ class _EndpointWidgetState extends State<EndpointWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
       children: [
-        SizedBox(
-          height: 30,
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            onPressed:
-                widget.server.isRunning
-                    ? null
-                    : () {
-                      widget.onChangedCheck!(!widget.mockModel.enable);
-                    },
-            icon: Icon(
-              widget.mockModel.enable
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
-              color:
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 30,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed:
+                    widget.server.isRunning
+                        ? null
+                        : () {
+                          widget.onChangedCheck!(!widget.mockModel.enable);
+                        },
+                icon: Icon(
                   widget.mockModel.enable
-                      ? colors(context).greenDarkness
-                      : null,
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 200,
-          height: 30,
-          child: CustomTextField(
-            hintText: '/example',
-            controller: endpointController,
-            onChanged: widget.onChangedEndpoint,
-            readOnly: widget.server.isRunning,
-          ),
-        ),
-        SizedBox(width: 5),
-        SizedBox(
-          width: 100,
-          height: 30,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(5),
-            onTap: () {
-              if (widget.server.isRunning) return;
-              showDialog(
-                context: context,
-                builder:
-                    (_) => Dialog(
-                      child: SizedBox(
-                        width: 100,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            methods.length,
-                            (index) => ListTile(
-                              title: Text(
-                                methods[index],
-                                style: TextStyle(
-                                  color: getColorMethod(methods[index]),
-                                ),
-                              ),
-                              onTap: () {
-                                widget.onChangedMethod!(methods[index]);
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-              );
-            },
-            child: Center(
-              child: Text(
-                widget.mockModel.method,
-                style: TextStyle(
-                  color: getColorMethod(widget.mockModel.method),
+                      ? Icons.check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+                  color:
+                      widget.mockModel.enable
+                          ? colors(context).greenDarkness
+                          : null,
                 ),
               ),
             ),
-          ),
+            SizedBox(
+              width: 200,
+              height: 30,
+              child: CustomTextField(
+                hintText: '/example',
+                controller: endpointController,
+                onChanged: widget.onChangedEndpoint,
+                readOnly: widget.server.isRunning,
+              ),
+            ),
+            SizedBox(width: 5),
+            SizedBox(
+              width: 100,
+              height: 30,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(5),
+                onTap: () {
+                  if (widget.server.isRunning) return;
+                  showDialog(
+                    context: context,
+                    builder:
+                        (_) => Dialog(
+                          child: SizedBox(
+                            width: 100,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                methods.length,
+                                (index) => ListTile(
+                                  title: Text(
+                                    methods[index],
+                                    style: TextStyle(
+                                      color: getColorMethod(methods[index]),
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    widget.onChangedMethod!(methods[index]);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                  );
+                },
+                child: Center(
+                  child: Text(
+                    widget.mockModel.method,
+                    style: TextStyle(
+                      color: getColorMethod(widget.mockModel.method),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 5),
+            SizedBox(
+              width: 100,
+              height: 30,
+              child: CustomTextField(
+                hintText: '200',
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                controller: statusCodeController,
+                onChanged: widget.onChangedStatusCode,
+                readOnly: widget.server.isRunning,
+              ),
+            ),
+            SizedBox(width: 5),
+            SizedBox(
+              width: 100,
+              height: 30,
+              child: CustomTextField(
+                hintText: 'Delay(ms)',
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                controller: delayCodeController,
+                onChanged: widget.onChangedDelay,
+                readOnly: widget.server.isRunning,
+              ),
+            ),
+            SizedBox(width: 20),
+            SizedBox(
+              width: 100,
+              height: 30,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(5),
+                onTap: () {
+                  showResponse = !showResponse;
+                  setState(() {});
+                },
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Response',
+                        style: TextStyle(color: AppColors.textD),
+                      ),
+                      Icon(
+                        showResponse
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.textD,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 5),
+            SizedBox(
+              height: 30,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed:
+                    widget.server.isRunning
+                        ? null
+                        : () {
+                          widget.onDelete!();
+                        },
+                icon: Icon(Icons.delete, size: 15, color: AppColors.textD),
+              ),
+            ),
+          ],
         ),
-        SizedBox(width: 5),
-        SizedBox(
-          width: 100,
-          height: 30,
-          child: CustomTextField(
-            hintText: '200',
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            controller: statusCodeController,
-            onChanged: widget.onChangedStatusCode,
-            readOnly: widget.server.isRunning,
-          ),
-        ),
-        SizedBox(width: 5),
-        Expanded(
-          flex: 1,
-          child: CustomJsonTextField(
-            hintText: 'Response Header',
-            controller: headerResponseController,
-            onChanged: widget.onChangedHeaderResponse,
-            readOnly: widget.server.isRunning,
-          ),
-        ),
-        SizedBox(width: 5),
-        Expanded(
-          flex: 1,
-          child: CustomJsonTextField(
-            hintText: 'Response Body',
-            controller: bodyResponseController,
-            onChanged: widget.onChangedBodyResponse,
-            readOnly: widget.server.isRunning,
-          ),
-        ),
-        SizedBox(
-          height: 30,
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            onPressed:
-                widget.server.isRunning
-                    ? null
-                    : () {
-                      widget.onDelete!();
-                    },
-            icon: Icon(Icons.delete, size: 15),
+        SizedBox(height: 5),
+        Visibility(
+          visible: showResponse,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                SizedBox(width: MediaQuery.sizeOf(context).width / 2),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Response Header',
+                            style: TextStyle(
+                              color: AppColors.textD,
+                              fontSize: 12,
+                            ),
+                          ),
+                          SizedBox(height: 5),
+                          CustomJsonTextField(
+                            hintText: 'Response Header',
+                            height: 150,
+                            controller: headerResponseController,
+                            onChanged: widget.onChangedHeaderResponse,
+                            readOnly: widget.server.isRunning,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 5),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Response Body',
+                            style: TextStyle(
+                              color: AppColors.textD,
+                              fontSize: 12,
+                            ),
+                          ),
+                          SizedBox(height: 5),
+                          CustomJsonTextField(
+                            height: 300,
+                            hintText: 'Response Body',
+                            controller: bodyResponseController,
+                            onChanged: widget.onChangedBodyResponse,
+                            readOnly: widget.server.isRunning,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

@@ -18,6 +18,7 @@ class CustomJsonTextField extends StatefulWidget {
   final void Function(String)? onChanged;
   final double textSize;
   final CodeLineEditingController controller;
+  final double height;
 
   const CustomJsonTextField({
     super.key,
@@ -29,6 +30,7 @@ class CustomJsonTextField extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.onChanged,
+    this.height = 200,
     this.textSize = 16, // default 16
   });
 
@@ -50,7 +52,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 200,
+      height: widget.height,
       decoration: BoxDecoration(
         color: Color(0xff3e3e42).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(5),
