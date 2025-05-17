@@ -1,11 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:json_field_editor/json_field_editor.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/server.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:re_editor/re_editor.dart';
 
 class EndpointWidget extends StatefulWidget {
   final MockModel mockModel;
@@ -38,8 +40,10 @@ class EndpointWidget extends StatefulWidget {
 class _EndpointWidgetState extends State<EndpointWidget> {
   TextEditingController endpointController = TextEditingController();
   TextEditingController statusCodeController = TextEditingController();
-  JsonTextFieldController headerResponseController = JsonTextFieldController();
-  JsonTextFieldController bodyResponseController = JsonTextFieldController();
+  CodeLineEditingController headerResponseController =
+      CodeLineEditingController();
+  CodeLineEditingController bodyResponseController =
+      CodeLineEditingController();
 
   @override
   void initState() {
@@ -48,7 +52,7 @@ class _EndpointWidgetState extends State<EndpointWidget> {
     headerResponseController.text =
         widget.mockModel.responseHeader == null
             ? ''
-            : widget.mockModel.responseHeader.toString();
+            : jsonEncode(widget.mockModel.responseHeader);
     bodyResponseController.text = widget.mockModel.responseBody.toString();
     super.initState();
   }

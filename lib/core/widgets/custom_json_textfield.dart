@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:json_field_editor/json_field_editor.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/widgets/code_find.dart';
 import 'package:mockondo/core/widgets/code_menu.dart';
@@ -10,7 +9,6 @@ import 'package:re_highlight/styles/atom-one-light.dart';
 import 'package:re_highlight/languages/json.dart';
 
 class CustomJsonTextField extends StatefulWidget {
-  final JsonTextFieldController? controller;
   final String? hintText;
   final IconData? prefixIcon;
   final bool readOnly;
@@ -19,10 +17,11 @@ class CustomJsonTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final double textSize;
+  final CodeLineEditingController controller;
 
   const CustomJsonTextField({
     super.key,
-    this.controller,
+    required this.controller,
     this.hintText,
     this.prefixIcon,
     this.isPassword = false,
@@ -38,8 +37,6 @@ class CustomJsonTextField extends StatefulWidget {
 }
 
 class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
-  CodeLineEditingController controller = CodeLineEditingController();
-
   CodeLines toCodeLines(String input) {
     final lines = input.split('\n');
     // Setiap baris dibungkus jadi CodeLine, lalu jadi CodeLineSegment (karena segmen punya list of CodeLine)
@@ -65,7 +62,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
             onPressed: () {
               try {
                 // Ambil teks dari controller
-                final rawText = controller.codeLines.segments
+                final rawText = widget.controller.codeLines.segments
                     .expand((e) => e)
                     .map((e) => e.text)
                     .join('\n');
@@ -83,7 +80,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
 
                 // Update controller
                 setState(() {
-                  controller.codeLines = beautifiedCodeLines;
+                  widget.controller.codeLines = beautifiedCodeLines;
                 });
               } catch (e) {
                 // Kalau gagal parse, tampilkan error atau abaikan
@@ -94,7 +91,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
           ),
           Expanded(
             child: CodeEditor(
-              controller: controller,
+              controller: widget.controller,
               readOnly: widget.readOnly,
               onChanged: (value) {
                 final res = value.codeLines.segments
@@ -151,31 +148,5 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
         ],
       ),
     );
-    // return JsonField(
-    //   controller: controller,
-    //   obscureText: isPassword,
-    //   keyboardType: TextInputType.multiline,
-    //   onChanged: onChanged,
-    //   readOnly: readOnly,
-    //   style: TextStyle(fontSize: textSize, color: AppColors.textD),
-    //   cursorHeight: textSize,
-    //   maxLines: 10,
-    //   commonTextStyle: TextStyle(fontSize: textSize, color: AppColors.textD),
-    //   decoration: InputDecoration(
-    //     prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
-    //     hintText: hintText,
-    //     filled: true,
-    //     fillColor: Color(0xff3e3e42).withValues(alpha: 0.5),
-    //     hintStyle: TextStyle(
-    //       fontSize: textSize * 0.95,
-    //       color: AppColors.textD.withValues(alpha: 0.5),
-    //     ),
-    //     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-    //     border: OutlineInputBorder(
-    //       borderRadius: BorderRadius.circular(5),
-    //       borderSide: BorderSide.none,
-    //     ),
-    //   ),
-    // );
   }
 }
