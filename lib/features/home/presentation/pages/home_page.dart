@@ -187,10 +187,27 @@ class _HomePageState extends State<HomePage> {
               child: ListView.builder(
                 itemCount: mockModel?.mockModels.length ?? 0,
                 itemBuilder: (context, index) {
+                  /// Get current mock model
+                  final current = mockModel!.mockModels[index];
+
+                  /// check if there is prior same enabled endpoint with same method
+                  final hasPriorSame = mockModel!.mockModels
+                      .sublist(0, index)
+                      .any(
+                        (e) =>
+                            e.enable &&
+                            e.endpoint == current.endpoint &&
+                            e.method == current.method,
+                      );
+
+                  /// determine if this is not the first running endpoint with same method and endpoint
+                  final isNotFirstRunning = server.isRunning && hasPriorSame;
+
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: EndpointWidget(
                       server: server,
+                      isNotFirstRunning: isNotFirstRunning,
                       mockModel: mockModel!.mockModels[index],
                       onChangedBodyResponse: (value) async {
                         mockModel!.mockModels[index].responseBody = value;
@@ -253,6 +270,7 @@ class _HomePageState extends State<HomePage> {
                 builder: (context, logs, _) {
                   return ListView.builder(
                     itemCount: logs.length,
+                    physics: ClampingScrollPhysics(),
                     itemBuilder: (context, index) {
                       return SelectableText(logs[index].log);
                     },

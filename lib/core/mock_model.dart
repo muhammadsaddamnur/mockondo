@@ -99,3 +99,5 @@ class MockModel {
     );
   }
 }
+
+class Rules {}

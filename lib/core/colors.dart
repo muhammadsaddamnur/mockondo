@@ -47,6 +47,7 @@ ThemeData getAppTheme(BuildContext context, ThemeModeType themeModeType) {
         backgroundDarkness: AppColors.backgroundD,
         secondaryDarkness: AppColors.secondaryD,
         greenDarkness: AppColors.greenD,
+        redDarkness: AppColors.red,
       ),
     ],
   );
@@ -58,15 +59,18 @@ class AppColors extends ThemeExtension<AppColors> {
   static const Color secondaryD = Color(0xff007acc);
   static const Color greenD = Color(0xffabc32f);
   static const Color textD = Color.fromARGB(255, 152, 152, 160);
+  static const Color red = Color.fromARGB(255, 255, 69, 32);
 
   final Color backgroundDarkness;
   final Color secondaryDarkness;
   final Color greenDarkness;
+  final Color redDarkness;
 
   AppColors({
     required this.backgroundDarkness,
     required this.secondaryDarkness,
     required this.greenDarkness,
+    required this.redDarkness,
   });
 
   @override
@@ -74,11 +78,13 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? backgroundDarkness,
     Color? secondaryDarkness,
     Color? greenDarkness,
+    Color? redDarkness,
   }) {
     return AppColors(
       backgroundDarkness: backgroundDarkness ?? this.backgroundDarkness,
       secondaryDarkness: secondaryDarkness ?? this.secondaryDarkness,
       greenDarkness: greenDarkness ?? this.greenDarkness,
+      redDarkness: redDarkness ?? this.redDarkness,
     );
   }
 
@@ -99,6 +105,7 @@ class AppColors extends ThemeExtension<AppColors> {
           backgroundDarkness,
       greenDarkness:
           Color.lerp(greenDarkness, other.greenDarkness, t) ?? greenDarkness,
+      redDarkness: Color.lerp(redDarkness, other.redDarkness, t) ?? redDarkness,
     );
   }
 }
