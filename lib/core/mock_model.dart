@@ -1,20 +1,39 @@
+import 'package:mockondo/core/server.dart';
+
 class MockData {
+  String name;
   String host;
   int port;
   List<MockModel> mockModels;
+  MainServer? server;
 
-  MockData({required this.host, required this.port, required this.mockModels});
+  MockData({
+    required this.name,
+    required this.host,
+    required this.port,
+    required this.mockModels,
+    this.server,
+  });
 
-  MockData copyWith({String? host, int? port, List<MockModel>? mockModels}) {
+  MockData copyWith({
+    String? name,
+    String? host,
+    int? port,
+    List<MockModel>? mockModels,
+    MainServer? server,
+  }) {
     return MockData(
+      name: name ?? this.name,
       host: host ?? this.host,
       port: port ?? this.port,
       mockModels: mockModels ?? this.mockModels,
+      server: server ?? this.server,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'name': name,
       'host': host,
       'port': port,
       'mock_models': mockModels.map((model) => model.toJson()).toList(),
@@ -23,6 +42,7 @@ class MockData {
 
   factory MockData.fromJson(Map<String, dynamic> json) {
     return MockData(
+      name: json['name'] as String? ?? '',
       host: json['host'] as String? ?? '',
       port: json['port'] as int? ?? 8080,
       mockModels:
@@ -30,6 +50,7 @@ class MockData {
               ?.map((e) => MockModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      server: MainServer(),
     );
   }
 }

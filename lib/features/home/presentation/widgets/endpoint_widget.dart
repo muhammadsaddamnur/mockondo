@@ -131,14 +131,15 @@ class _EndpointWidgetState extends State<EndpointWidget> {
                 ),
               ),
             ],
-            SizedBox(
-              width: 200,
-              height: 30,
-              child: CustomTextField(
-                hintText: '/example',
-                controller: endpointController,
-                onChanged: widget.onChangedEndpoint,
-                readOnly: widget.server.isRunning,
+            Expanded(
+              child: SizedBox(
+                height: 30,
+                child: CustomTextField(
+                  hintText: '/example',
+                  controller: endpointController,
+                  onChanged: widget.onChangedEndpoint,
+                  readOnly: widget.server.isRunning,
+                ),
               ),
             ),
             SizedBox(width: 5),

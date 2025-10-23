@@ -9,8 +9,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-    const minSize = Size(800, 600);
-    const initialSize = Size(800, 600);
+    const minSize = Size(1000, 600);
+    const initialSize = Size(1000, 600);
 
     setWindowMinSize(minSize);
     setWindowMaxSize(Size.infinite);
