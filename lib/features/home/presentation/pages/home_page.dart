@@ -39,8 +39,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _getIpAddress() async {
-    if (mockModels.isEmpty) return;
-
     final info = NetworkInfo();
     final wifiIP = await info.getWifiIP(); // IP lokal di jaringan Wi-Fi
 
