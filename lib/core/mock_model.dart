@@ -1,6 +1,7 @@
 import 'package:mockondo/core/server.dart';
 
 class MockData {
+  int id;
   String name;
   String host;
   int port;
@@ -8,6 +9,7 @@ class MockData {
   MainServer? server;
 
   MockData({
+    this.id = 0,
     required this.name,
     required this.host,
     required this.port,
@@ -16,6 +18,7 @@ class MockData {
   });
 
   MockData copyWith({
+    int? id,
     String? name,
     String? host,
     int? port,
@@ -23,6 +26,7 @@ class MockData {
     MainServer? server,
   }) {
     return MockData(
+      id: id ?? this.id,
       name: name ?? this.name,
       host: host ?? this.host,
       port: port ?? this.port,
@@ -33,6 +37,7 @@ class MockData {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'host': host,
       'port': port,
@@ -42,6 +47,7 @@ class MockData {
 
   factory MockData.fromJson(Map<String, dynamic> json) {
     return MockData(
+      id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       host: json['host'] as String? ?? '',
       port: json['port'] as int? ?? 8080,

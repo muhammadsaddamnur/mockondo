@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
+import 'package:mockondo/core/server.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/features/home/presentation/widgets/endpoint_widget.dart';
 import 'package:network_info_plus/network_info_plus.dart';
@@ -76,14 +77,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   createModel() {
+    final id = mockModels.isNotEmpty ? mockModels.last!.id + 1 : 1;
+    final port = 8080 + id;
+
     mockModels.add(
       MockData(
-        name: 'Project ${mockModels.length + 1}',
+        id: id,
+        name: 'Project $id',
         host: '',
-        port: 8080 + mockModels.length,
+        port: port,
         mockModels: [],
+        server: MainServer(),
       ),
     );
+
+    _getIpAddress();
+    hostController.text = '';
+    portController.text = port.toString();
     setState(() {});
   }
 
