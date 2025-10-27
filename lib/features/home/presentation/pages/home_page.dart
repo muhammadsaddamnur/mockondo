@@ -511,91 +511,88 @@ class _HomePageState extends State<HomePage> {
           // ),
         ],
       ),
-      floatingActionButton:
-          homeController.mockModels.isEmpty
-              ? null
-              : FloatingActionButton(
-                backgroundColor:
-                    homeController.serverIsRunning()
-                        ? Colors.red
-                        : colors(context).greenDarkness,
-                onPressed: () async {
-                  homeController
-                      .mockModels[homeController.selectedMockModelIndex.value]
-                      ?.server
-                      ?.setHost = homeController
+      floatingActionButton: Obx(() {
+        return homeController.mockModels.isEmpty
+            ? SizedBox()
+            : FloatingActionButton(
+              backgroundColor:
+                  homeController.serverIsRunning()
+                      ? Colors.red
+                      : colors(context).greenDarkness,
+              onPressed: () async {
+                homeController
+                    .mockModels[homeController.selectedMockModelIndex.value]
+                    ?.server
+                    ?.setHost = homeController
+                        .mockModels[homeController.selectedMockModelIndex.value]
+                        ?.host ??
+                    '';
+                homeController
+                    .mockModels[homeController.selectedMockModelIndex.value]
+                    ?.server
+                    ?.setPort = homeController
+                        .mockModels[homeController.selectedMockModelIndex.value]
+                        ?.port ??
+                    8080;
+                if (homeController.portController.text.isEmpty) {
+                  homeController.portController.text =
+                      homeController
                           .mockModels[homeController
                               .selectedMockModelIndex
-                              .value]
-                          ?.host ??
-                      '';
-                  homeController
-                      .mockModels[homeController.selectedMockModelIndex.value]
-                      ?.server
-                      ?.setPort = homeController
-                          .mockModels[homeController
-                              .selectedMockModelIndex
-                              .value]
-                          ?.port ??
-                      8080;
-                  if (homeController.portController.text.isEmpty) {
-                    homeController.portController.text =
-                        homeController
-                            .mockModels[homeController
-                                .selectedMockModelIndex
-                                .value]!
-                            .server!
-                            .port
-                            .toString();
-                  }
+                              .value]!
+                          .server!
+                          .port
+                          .toString();
+                }
 
-                  homeController
-                      .mockModels[homeController.selectedMockModelIndex.value]
-                      ?.server
-                      ?.clearRouters();
+                homeController
+                    .mockModels[homeController.selectedMockModelIndex.value]
+                    ?.server
+                    ?.clearRouters();
 
-                  if (homeController.serverIsRunning()) {
-                    await homeController
-                        .mockModels[homeController.selectedMockModelIndex.value]
-                        ?.server
-                        ?.stop();
-                    setState(() {});
-                    return;
-                  }
-
-                  for (var mockModel
-                      in homeController
-                              .mockModels[homeController
-                                  .selectedMockModelIndex
-                                  .value]
-                              ?.mockModels ??
-                          <MockModel>[]) {
-                    if (!mockModel.enable) continue;
-                    // Tambah router baru
-                    final customRouter = RoutingCore.getRouter(
-                      mockModel.method,
-                      mockModel,
-                    );
-                    homeController
-                        .mockModels[homeController.selectedMockModelIndex.value]
-                        ?.server
-                        ?.addRouter(customRouter);
-                  }
-
-                  setState(() {});
+                if (homeController.serverIsRunning()) {
                   await homeController
                       .mockModels[homeController.selectedMockModelIndex.value]
                       ?.server
-                      ?.run();
-                  await homeController.save();
-                },
-                child: Icon(
-                  homeController.serverIsRunning()
-                      ? Icons.stop
-                      : Icons.play_arrow,
-                  color: Colors.white,
-                ),
+                      ?.stop();
+                  setState(() {});
+                  return;
+                }
+
+                for (var mockModel
+                    in homeController
+                            .mockModels[homeController
+                                .selectedMockModelIndex
+                                .value]
+                            ?.mockModels ??
+                        <MockModel>[]) {
+                  if (!mockModel.enable) continue;
+                  // Tambah router baru
+                  final customRouter = RoutingCore.getRouter(
+                    mockModel.method,
+                    mockModel,
+                  );
+                  homeController
+                      .mockModels[homeController.selectedMockModelIndex.value]
+                      ?.server
+                      ?.addRouter(customRouter);
+                }
+
+                setState(() {});
+                await homeController
+                    .mockModels[homeController.selectedMockModelIndex.value]
+                    ?.server
+                    ?.run();
+                await homeController.save();
+              },
+              child: Icon(
+                homeController.serverIsRunning()
+                    ? Icons.stop
+                    : Icons.play_arrow,
+                color: Colors.white,
               ),
+            );
+      }),
     );
   }
 }
