@@ -1,18 +1,13 @@
-import 'dart:convert';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
-import 'package:mockondo/core/server.dart';
+import 'package:mockondo/core/routing_core.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
 import 'package:mockondo/features/home/presentation/widgets/endpoint_widget.dart';
-import 'package:network_info_plus/network_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shelf/shelf.dart' as shelf;
-import 'package:shelf_router/shelf_router.dart' as shelf_router;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,96 +17,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // final server = MainServer();
-  TextEditingController hostController = TextEditingController();
-  TextEditingController portController = TextEditingController();
-  bool showLog = false;
+  final homeController = Get.put(HomeController());
+  var reset = false;
 
-  String? _ipAddress;
-  List<MockData?> mockModels = [];
-  int selectedMockModelIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _getIpAddress();
-    load();
-  }
-
-  Future<void> _getIpAddress() async {
-    final info = NetworkInfo();
-    final wifiIP = await info.getWifiIP(); // IP lokal di jaringan Wi-Fi
-
-    setState(() {
-      _ipAddress = wifiIP;
-      mockModels[selectedMockModelIndex]?.server?.setLocalIp = _ipAddress ?? '';
-    });
-  }
-
-  save() async {
-    if (mockModels.isEmpty) return;
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(
-      'mocks_data',
-      jsonEncode(mockModels.map((e) => e?.toJson()).toList()),
-    );
-    setState(() {});
-  }
-
-  load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('mocks_data');
-
-    if (data == null) return;
-
-    mockModels =
-        (jsonDecode(data) as List<dynamic>)
-            .map((e) => MockData.fromJson(e as Map<String, dynamic>))
-            .toList();
-    hostController.text = mockModels[selectedMockModelIndex]?.host ?? '';
-    portController.text =
-        (mockModels[selectedMockModelIndex]?.port ?? 8080).toString();
-    setState(() {});
-  }
-
-  createModel() {
-    final id = mockModels.isNotEmpty ? mockModels.last!.id + 1 : 1;
-    final port = 8080 + id;
-
-    mockModels.add(
-      MockData(
-        id: id,
-        name: 'Project $id',
-        host: '',
-        port: port,
-        mockModels: [],
-        server: MainServer(),
-      ),
-    );
-
-    _getIpAddress();
-    hostController.text = '';
-    portController.text = port.toString();
-    setState(() {});
-  }
-
-  removeModel(int index) {
-    mockModels.removeAt(index);
-    if (selectedMockModelIndex >= index && selectedMockModelIndex > 0) {
-      selectedMockModelIndex--;
-    }
-    if (mockModels.isEmpty) {
-      hostController.text = '';
-      portController.text = '';
-    } else {
-      hostController.text = mockModels[selectedMockModelIndex]?.host ?? '';
-      portController.text =
-          (mockModels[selectedMockModelIndex]?.port ?? 8080).toString();
-    }
-
-    Navigator.of(context).pop();
+  Future<void> change() async {
+    reset = true;
+    await Future.delayed(Duration(milliseconds: 10));
+    reset = false;
     setState(() {});
   }
 
@@ -125,261 +37,291 @@ class _HomePageState extends State<HomePage> {
             width: 200,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: ListView(
-                children: [
-                  ...List.generate(
-                    mockModels.length,
-                    (index) => InkWell(
-                      onTap: () {
-                        selectedMockModelIndex = index;
-                        hostController.text =
-                            mockModels[selectedMockModelIndex]?.host ?? '';
-                        portController.text =
-                            (mockModels[selectedMockModelIndex]?.port ?? 8080)
-                                .toString();
-                        setState(() {});
-                      },
-                      onSecondaryTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) {
-                            return AlertDialog(
-                              backgroundColor:
-                                  colors(context).backgroundDarkness,
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CustomTextField(
-                                    controller: TextEditingController(
-                                      text: mockModels[index]?.name ?? '',
+              child: Obx(() {
+                return ListView(
+                  children: [
+                    ...List.generate(
+                      homeController.mockModels.length,
+                      (index) => InkWell(
+                        onTap: () {
+                          final mock =
+                              homeController.mockModels[homeController
+                                  .selectedMockModelIndex
+                                  .value];
+                          homeController.selectedMockModelIndex.value = index;
+                          homeController.hostController.text = mock?.host ?? '';
+                          homeController.portController.text =
+                              (mock?.port ?? 8080).toString();
+                          change();
+                          setState(() {});
+                        },
+                        onSecondaryTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                backgroundColor:
+                                    colors(context).backgroundDarkness,
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CustomTextField(
+                                      controller: TextEditingController(
+                                        text:
+                                            homeController
+                                                .mockModels[index]
+                                                ?.name ??
+                                            '',
+                                      ),
+                                      hintText: 'Project Name',
+                                      onChanged: (value) {
+                                        homeController.mockModels[index]?.name =
+                                            value;
+                                        setState(() {});
+                                      },
                                     ),
-                                    hintText: 'Project Name',
-                                    onChanged: (value) {
-                                      mockModels[index]?.name = value;
-                                      setState(() {});
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      homeController.removeModel(index);
+                                      Navigator.of(context).pop();
                                     },
+                                    child: Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: colors(context).redDarkness,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: Text('Close'),
                                   ),
                                 ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    removeModel(index);
-                                  },
-                                  child: Text(
-                                    'Delete',
-                                    style: TextStyle(
-                                      color: colors(context).redDarkness,
-                                    ),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: Text('Close'),
-                                ),
-                              ],
-                            );
-                          },
-                        );
+                              );
+                            },
+                          );
 
-                        setState(() {});
-                      },
-                      child: Container(
-                        color:
-                            selectedMockModelIndex == index
-                                ? AppColors.textD.withValues(alpha: 0.3)
-                                : Colors.transparent,
-                        height: 50,
-                        child: Center(
-                          child: Text(
-                            mockModels[index]?.name ?? 'Unnamed Project',
-                            style: TextStyle(
-                              color: AppColors.textD,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          setState(() {});
+                        },
+                        child: Container(
+                          color:
+                              homeController.selectedMockModelIndex.value ==
+                                      index
+                                  ? AppColors.textD.withValues(alpha: 0.3)
+                                  : Colors.transparent,
+                          height: 50,
+                          child: Center(
+                            child: Text(
+                              homeController.mockModels[index]?.name ??
+                                  'Unnamed Project',
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        createModel();
-                      },
-                      child: Text('Add Project'),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          homeController.createModel();
+                        },
+                        child: Text('Add Project'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ),
           ),
-          if (mockModels.isEmpty) ...[
-            Expanded(
-              child: Center(
-                child: Text(
-                  'No project available. Please add a new project.',
-                  style: TextStyle(color: AppColors.textD, fontSize: 16),
+          Obx(() {
+            final serverIsRunning = homeController.serverIsRunning();
+
+            if (homeController.mockModels.isEmpty) {
+              return Expanded(
+                child: Center(
+                  child: Text(
+                    'No project available. Please add a new project.',
+                    style: TextStyle(color: AppColors.textD, fontSize: 16),
+                  ),
                 ),
-              ),
-            ),
-          ] else ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: SizedBox(
-                      height: 50,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
+              );
+            } else {
+              return Expanded(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SizedBox(
+                        height: 50,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 30,
+                                child: Center(
+                                  child: CustomTextField(
+                                    controller: homeController.hostController,
+                                    hintText:
+                                        'Proxy Target URL : https://example.com',
+                                    readOnly: serverIsRunning,
+                                    onChanged: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .host = value;
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.keyboard_arrow_right_rounded),
+                            Expanded(
+                              child: Tooltip(
+                                message:
+                                    'On the Android emulator, it usually starts with 10.0.0.2, or you can check it in the emulator settings.',
+                                child: SizedBox(
+                                  height: 30,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        SelectableText(
+                                          '${homeController.ipAddress.value}${!serverIsRunning ? '' : ':${homeController.mockModels[homeController.selectedMockModelIndex.value]?.server?.port}'}',
+                                          style: TextStyle(
+                                            color: AppColors.textD,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          'your ip address',
+                                          style: TextStyle(
+                                            color: AppColors.textD,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // child: Center(child: CustomTextField()),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 5),
+                            SizedBox(
                               height: 30,
+                              width: 100,
                               child: Center(
                                 child: CustomTextField(
-                                  controller: hostController,
-                                  hintText:
-                                      'Proxy Target URL : https://example.com',
-                                  readOnly:
-                                      mockModels[selectedMockModelIndex]
-                                          ?.server
-                                          ?.isRunning ??
-                                      false,
+                                  controller: homeController.portController,
+                                  hintText: 'Port',
+                                  readOnly: serverIsRunning,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   onChanged: (value) async {
-                                    mockModels[selectedMockModelIndex]!.host =
-                                        value;
-                                    await save();
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .port = int.parse(
+                                      value.isEmpty ? '8080' : value,
+                                    );
+                                    await homeController.save();
                                     setState(() {});
                                   },
                                 ),
                               ),
                             ),
-                          ),
-                          Icon(Icons.keyboard_arrow_right_rounded),
-                          Expanded(
-                            child: SizedBox(
-                              height: 30,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SelectableText(
-                                      '$_ipAddress${!(mockModels[selectedMockModelIndex]?.server?.isRunning ?? false) ? '' : ':${mockModels[selectedMockModelIndex]?.server?.port}'}',
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      'your ip address',
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // child: Center(child: CustomTextField()),
-                            ),
-                          ),
-                          SizedBox(width: 5),
-                          SizedBox(
-                            height: 30,
-                            width: 100,
-                            child: Center(
-                              child: CustomTextField(
-                                controller: portController,
-                                hintText: 'Port',
-                                readOnly:
-                                    mockModels[selectedMockModelIndex]
-                                        ?.server
-                                        ?.isRunning ??
-                                    false,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                onChanged: (value) async {
-                                  mockModels[selectedMockModelIndex]!.port =
-                                      int.parse(value.isEmpty ? '8080' : value);
-                                  await save();
-                                  setState(() {});
-                                },
-                              ),
-                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(thickness: 1),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed:
+                                serverIsRunning
+                                    ? null
+                                    : () async {
+                                      var m =
+                                          homeController
+                                              .mockModels[homeController
+                                                  .selectedMockModelIndex
+                                                  .value]
+                                              ?.mockModels ??
+                                          [];
+                                      m.add(
+                                        MockModel(
+                                          enable: false,
+                                          endpoint: '',
+                                          statusCode: 200,
+                                          responseBody: '',
+                                          method: 'GET',
+                                        ),
+                                      );
+                                      homeController.mockModels[homeController
+                                          .selectedMockModelIndex
+                                          .value] = homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]
+                                          ?.copyWith(mockModels: m);
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                            child: Text('Add Endpoint'),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  Divider(thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        ElevatedButton(
-                          onPressed:
-                              mockModels[selectedMockModelIndex]
-                                          ?.server
-                                          ?.isRunning ??
-                                      false
-                                  ? null
-                                  : () async {
-                                    var m =
-                                        mockModels[selectedMockModelIndex]
-                                            ?.mockModels ??
-                                        [];
-                                    m.add(
-                                      MockModel(
-                                        enable: false,
-                                        endpoint: '',
-                                        statusCode: 200,
-                                        responseBody: '',
-                                        method: 'GET',
-                                      ),
-                                    );
-                                    mockModels[selectedMockModelIndex] =
-                                        mockModels[selectedMockModelIndex]
-                                            ?.copyWith(mockModels: m);
-                                    await save();
-                                    setState(() {});
-                                    log(
-                                      mockModels[selectedMockModelIndex]
-                                              ?.mockModels
-                                              .length
-                                              .toString() ??
-                                          '',
-                                    );
-                                  },
-                          child: Text('Add Endpoint'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ListView.builder(
-                        itemCount:
-                            mockModels[selectedMockModelIndex]
-                                ?.mockModels
-                                .length ??
-                            0,
-                        itemBuilder: (context, index) {
-                          /// Get current mock model
-                          final current =
-                              mockModels[selectedMockModelIndex]!
-                                  .mockModels[index];
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Obx(() {
+                          if (reset) return SizedBox();
 
-                          /// check if there is prior same enabled endpoint with same method
-                          final hasPriorSame =
-                              mockModels[selectedMockModelIndex]!.mockModels
+                          return ListView.builder(
+                            itemCount:
+                                homeController
+                                    .mockModels[homeController
+                                        .selectedMockModelIndex
+                                        .value]
+                                    ?.mockModels
+                                    .length ??
+                                0,
+                            itemBuilder: (context, index) {
+                              /// Get current mock model
+                              final current =
+                                  homeController
+                                      .mockModels[homeController
+                                          .selectedMockModelIndex
+                                          .value]!
+                                      .mockModels[index];
+
+                              /// check if there is prior same enabled endpoint with same method
+                              final hasPriorSame = homeController
+                                  .mockModels[homeController
+                                      .selectedMockModelIndex
+                                      .value]!
+                                  .mockModels
                                   .sublist(0, index)
                                   .any(
                                     (e) =>
@@ -388,293 +330,272 @@ class _HomePageState extends State<HomePage> {
                                         e.method == current.method,
                                   );
 
-                          /// determine if this is not the first running endpoint with same method and endpoint
-                          final isNotFirstRunning =
-                              (mockModels[selectedMockModelIndex]
-                                      ?.server
-                                      ?.isRunning ??
-                                  false) &&
-                              hasPriorSame;
+                              /// determine if this is not the first running endpoint with same method and endpoint
+                              final isNotFirstRunning =
+                                  serverIsRunning && hasPriorSame;
 
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: EndpointWidget(
-                              server:
-                                  mockModels[selectedMockModelIndex]!.server!,
-                              isNotFirstRunning: isNotFirstRunning,
-                              mockModel:
-                                  mockModels[selectedMockModelIndex]!
-                                      .mockModels[index],
-                              onChangedBodyResponse: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .responseBody = value;
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedCheck: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .enable = value ?? false;
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedEndpoint: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .endpoint = value;
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedStatusCode: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .statusCode = int.parse(value);
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedDelay: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .delay = int.parse(value);
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedHeaderResponse: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .responseHeader = parseHeader(value);
-                                await save();
-                                setState(() {});
-                              },
-                              onChangedMethod: (value) async {
-                                mockModels[selectedMockModelIndex]!
-                                    .mockModels[index]
-                                    .method = value;
-                                await save();
-                                setState(() {});
-                              },
-                              onDelete: () async {
-                                mockModels[selectedMockModelIndex]!.mockModels
-                                    .removeAt(index);
-                                await save();
-                                setState(() {});
-                              },
-                            ),
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: EndpointWidget(
+                                  endpointIndex: index,
+                                  isNotFirstRunning: isNotFirstRunning,
+                                  onChangedCheck: (value) async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index]
+                                        .enable = value ?? false;
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                  onChangedEndpoint: (value) async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index]
+                                        .endpoint = value;
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                  onChangedStatusCode: (value) async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index]
+                                        .statusCode = int.parse(value);
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                  onChangedDelay: (value) async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index]
+                                        .delay = int.parse(value);
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                  onChangedMethod: (value) async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index]
+                                        .method = value;
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                  onDelete: () async {
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels
+                                        .removeAt(index);
+                                    await homeController.save();
+                                    setState(() {});
+                                  },
+                                ),
+                              );
+                            },
                           );
-                        },
+                        }),
                       ),
                     ),
-                  ),
-                  Visibility(
-                    visible: showLog,
-                    child: Container(
-                      height: 200,
+                    Visibility(
+                      visible: homeController.showLog.value,
+                      child: Container(
+                        height: 200,
+                        width: MediaQuery.sizeOf(context).width,
+                        color: AppColors.terminalD,
+                        child: ValueListenableBuilder<List<LogModel>>(
+                          valueListenable:
+                              homeController
+                                  .mockModels[homeController
+                                      .selectedMockModelIndex
+                                      .value]
+                                  ?.server
+                                  ?.logService
+                                  .logs ??
+                              ValueNotifier<List<LogModel>>([]),
+                          builder: (context, logs, _) {
+                            return ListView.builder(
+                              itemCount: logs.length,
+                              physics: ClampingScrollPhysics(),
+                              itemBuilder: (context, index) {
+                                return SelectableText(logs[index].log);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    Container(
+                      height: 25,
                       width: MediaQuery.sizeOf(context).width,
-                      color: AppColors.terminalD,
-                      child: ValueListenableBuilder<List<LogModel>>(
-                        valueListenable:
-                            mockModels[selectedMockModelIndex]
-                                ?.server
-                                ?.logService
-                                .logs ??
-                            ValueNotifier<List<LogModel>>([]),
-                        builder: (context, logs, _) {
-                          return ListView.builder(
-                            itemCount: logs.length,
-                            physics: ClampingScrollPhysics(),
-                            itemBuilder: (context, index) {
-                              return SelectableText(logs[index].log);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  Container(
-                    height: 25,
-                    width: MediaQuery.sizeOf(context).width,
-                    color: colors(context).secondaryDarkness,
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          InkWell(
-                            onTap: () {
-                              showLog = !showLog;
-                              setState(() {});
-                            },
-                            child: SizedBox(
+                      color: colors(context).secondaryDarkness,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                homeController.showLog.value =
+                                    !homeController.showLog.value;
+                                setState(() {});
+                              },
+                              child: SizedBox(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.terminal_rounded, size: 15),
+                                    SizedBox(width: 5),
+                                    Text('log', style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 15),
+                            Visibility(
+                              visible:
+                                  (homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]
+                                          ?.mockModels
+                                          .where((e) => e.enable)
+                                          .length ??
+                                      0) !=
+                                  0,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.terminal_rounded, size: 15),
+                                  Icon(Icons.wifi_tethering, size: 15),
                                   SizedBox(width: 5),
-                                  Text('log', style: TextStyle(fontSize: 12)),
+                                  Text(
+                                    '${homeController.mockModels[homeController.selectedMockModelIndex.value]?.mockModels.where((e) => e.enable).length} ${serverIsRunning ? 'running...' : 'ready to mock'}',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                          SizedBox(width: 15),
-                          Visibility(
-                            visible:
-                                (mockModels[selectedMockModelIndex]?.mockModels
-                                        .where((e) => e.enable)
-                                        .length ??
-                                    0) !=
-                                0,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(Icons.wifi_tethering, size: 15),
-                                SizedBox(width: 5),
-                                Text(
-                                  '${mockModels[selectedMockModelIndex]?.mockModels.where((e) => e.enable).length} ${(mockModels[selectedMockModelIndex]?.server?.isRunning ?? false) ? 'running...' : 'ready to mock'}',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                  ],
+                ),
+              );
+            }
+          }),
+          // Column(
+          //   children: [
+          //     ElevatedButton(
+          //       onPressed: () {
+          //         homeController.clearAll();
+          //       },
+          //       child: Text('Clear All'),
+          //     ),
+          //     ElevatedButton(
+          //       onPressed: () {
+          //         homeController.getAll();
+          //       },
+          //       child: Text('Get All'),
+          //     ),
+          //   ],
+          // ),
         ],
       ),
       floatingActionButton:
-          mockModels.isEmpty
+          homeController.mockModels.isEmpty
               ? null
               : FloatingActionButton(
                 backgroundColor:
-                    (mockModels[selectedMockModelIndex]?.server?.isRunning ??
-                            false)
+                    homeController.serverIsRunning()
                         ? Colors.red
                         : colors(context).greenDarkness,
                 onPressed: () async {
-                  mockModels[selectedMockModelIndex]?.server?.setHost =
-                      mockModels[selectedMockModelIndex]?.host ?? '';
-                  mockModels[selectedMockModelIndex]?.server?.setPort =
-                      mockModels[selectedMockModelIndex]?.port ?? 8080;
-                  if (portController.text.isEmpty) {
-                    portController.text =
-                        mockModels[selectedMockModelIndex]!.server!.port
+                  homeController
+                      .mockModels[homeController.selectedMockModelIndex.value]
+                      ?.server
+                      ?.setHost = homeController
+                          .mockModels[homeController
+                              .selectedMockModelIndex
+                              .value]
+                          ?.host ??
+                      '';
+                  homeController
+                      .mockModels[homeController.selectedMockModelIndex.value]
+                      ?.server
+                      ?.setPort = homeController
+                          .mockModels[homeController
+                              .selectedMockModelIndex
+                              .value]
+                          ?.port ??
+                      8080;
+                  if (homeController.portController.text.isEmpty) {
+                    homeController.portController.text =
+                        homeController
+                            .mockModels[homeController
+                                .selectedMockModelIndex
+                                .value]!
+                            .server!
+                            .port
                             .toString();
                   }
 
-                  mockModels[selectedMockModelIndex]?.server?.clearRouters();
+                  homeController
+                      .mockModels[homeController.selectedMockModelIndex.value]
+                      ?.server
+                      ?.clearRouters();
 
-                  if (mockModels[selectedMockModelIndex]?.server?.isRunning ??
-                      false) {
-                    await mockModels[selectedMockModelIndex]?.server?.stop();
+                  if (homeController.serverIsRunning()) {
+                    await homeController
+                        .mockModels[homeController.selectedMockModelIndex.value]
+                        ?.server
+                        ?.stop();
                     setState(() {});
                     return;
                   }
 
                   for (var mockModel
-                      in mockModels[selectedMockModelIndex]?.mockModels ??
+                      in homeController
+                              .mockModels[homeController
+                                  .selectedMockModelIndex
+                                  .value]
+                              ?.mockModels ??
                           <MockModel>[]) {
                     if (!mockModel.enable) continue;
                     // Tambah router baru
-                    final customRouter = getRouter(mockModel.method, mockModel);
-                    mockModels[selectedMockModelIndex]?.server?.addRouter(
-                      customRouter,
+                    final customRouter = RoutingCore.getRouter(
+                      mockModel.method,
+                      mockModel,
                     );
+                    homeController
+                        .mockModels[homeController.selectedMockModelIndex.value]
+                        ?.server
+                        ?.addRouter(customRouter);
                   }
 
                   setState(() {});
-                  await mockModels[selectedMockModelIndex]?.server?.run();
-                  await save();
+                  await homeController
+                      .mockModels[homeController.selectedMockModelIndex.value]
+                      ?.server
+                      ?.run();
+                  await homeController.save();
                 },
                 child: Icon(
-                  (mockModels[selectedMockModelIndex]?.server?.isRunning ??
-                          false)
+                  homeController.serverIsRunning()
                       ? Icons.stop
                       : Icons.play_arrow,
                   color: Colors.white,
                 ),
               ),
     );
-  }
-
-  shelf_router.Router getRouter(String method, MockModel mockModel) {
-    switch (method) {
-      case 'GET':
-        return shelf_router.Router()
-          ..get(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response(
-              mockModel.statusCode,
-              headers: mockModel.responseHeader,
-              body: mockModel.responseBody,
-            );
-          });
-      case 'POST':
-        return shelf_router.Router()
-          ..post(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response(
-              mockModel.statusCode,
-              headers: mockModel.responseHeader,
-              body: mockModel.responseBody,
-            );
-          });
-      case 'PUT':
-        return shelf_router.Router()
-          ..put(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response(
-              mockModel.statusCode,
-              headers: mockModel.responseHeader,
-              body: mockModel.responseBody,
-            );
-          });
-      case 'PATCH':
-        return shelf_router.Router()
-          ..patch(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response(
-              mockModel.statusCode,
-              headers: mockModel.responseHeader,
-              body: mockModel.responseBody,
-            );
-          });
-      case 'DELETE':
-        return shelf_router.Router()
-          ..delete(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response(
-              mockModel.statusCode,
-              headers: mockModel.responseHeader,
-              body: mockModel.responseBody,
-            );
-          });
-      default:
-        return shelf_router.Router()
-          ..get(mockModel.endpoint, (shelf.Request request) async {
-            await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
-            return shelf.Response.ok('This is custom route');
-          });
-    }
-  }
-
-  Map<String, Object> parseHeader(String jsonString) {
-    final decoded = jsonDecode(jsonString);
-
-    if (decoded is Map<String, dynamic>) {
-      return decoded.map((key, value) {
-        if (value is Object) {
-          return MapEntry(key, value);
-        } else {
-          throw FormatException('Value for key "$key" is not an Object.');
-        }
-      });
-    } else {
-      throw FormatException('Invalid JSON format. Expected a JSON object.');
-    }
   }
 }

@@ -95,6 +95,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
             child: CodeEditor(
               controller: widget.controller,
               readOnly: widget.readOnly,
+              hint: widget.hintText,
               onChanged: (value) {
                 final res = value.codeLines.segments
                     .expand((e) => e)
@@ -144,6 +145,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                   languages: {'json': CodeHighlightThemeMode(mode: langJson)},
                   theme: atomOneLightTheme,
                 ),
+                hintTextColor: AppColors.textD.withValues(alpha: 0.5),
               ),
             ),
           ),
