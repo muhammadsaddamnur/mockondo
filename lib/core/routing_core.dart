@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:mockondo/core/generate_core.dart';
+import 'package:mockondo/core/interpolation.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
@@ -19,7 +20,11 @@ class RoutingCore {
           ..get(mockModel.endpoint, (shelf.Request request) async {
             final body =
                 pagination == null
-                    ? responseBody
+                    ? Interpolation().excute(
+                      request: request,
+                      before: responseBody,
+                      data: responseBody,
+                    )
                     : GenerateCore.pagination(
                       request: request,
                       responseBody: responseBody,
@@ -36,41 +41,93 @@ class RoutingCore {
       case 'POST':
         return shelf_router.Router()
           ..post(mockModel.endpoint, (shelf.Request request) async {
+            final body =
+                pagination == null
+                    ? Interpolation().excute(
+                      request: request,
+                      before: responseBody,
+                      data: responseBody,
+                    )
+                    : GenerateCore.pagination(
+                      request: request,
+                      responseBody: responseBody,
+                      pagination: pagination,
+                    );
+
             await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
             return shelf.Response(
               mockModel.statusCode,
               headers: mockModel.responseHeader,
-              body: responseBody,
+              body: body,
             );
           });
       case 'PUT':
         return shelf_router.Router()
           ..put(mockModel.endpoint, (shelf.Request request) async {
+            final body =
+                pagination == null
+                    ? Interpolation().excute(
+                      request: request,
+                      before: responseBody,
+                      data: responseBody,
+                    )
+                    : GenerateCore.pagination(
+                      request: request,
+                      responseBody: responseBody,
+                      pagination: pagination,
+                    );
+
             await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
             return shelf.Response(
               mockModel.statusCode,
               headers: mockModel.responseHeader,
-              body: responseBody,
+              body: body,
             );
           });
       case 'PATCH':
         return shelf_router.Router()
           ..patch(mockModel.endpoint, (shelf.Request request) async {
+            final body =
+                pagination == null
+                    ? Interpolation().excute(
+                      request: request,
+                      before: responseBody,
+                      data: responseBody,
+                    )
+                    : GenerateCore.pagination(
+                      request: request,
+                      responseBody: responseBody,
+                      pagination: pagination,
+                    );
+
             await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
             return shelf.Response(
               mockModel.statusCode,
               headers: mockModel.responseHeader,
-              body: responseBody,
+              body: body,
             );
           });
       case 'DELETE':
         return shelf_router.Router()
           ..delete(mockModel.endpoint, (shelf.Request request) async {
+            final body =
+                pagination == null
+                    ? Interpolation().excute(
+                      request: request,
+                      before: responseBody,
+                      data: responseBody,
+                    )
+                    : GenerateCore.pagination(
+                      request: request,
+                      responseBody: responseBody,
+                      pagination: pagination,
+                    );
+
             await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
             return shelf.Response(
               mockModel.statusCode,
               headers: mockModel.responseHeader,
-              body: responseBody,
+              body: body,
             );
           });
       default:

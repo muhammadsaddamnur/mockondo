@@ -375,7 +375,7 @@ class _HomePageState extends State<HomePage> {
                                             .selectedMockModelIndex
                                             .value]!
                                         .mockModels[index]
-                                        .delay = int.parse(value);
+                                        .delay = int.tryParse(value);
                                     await homeController.save();
                                     setState(() {});
                                   },

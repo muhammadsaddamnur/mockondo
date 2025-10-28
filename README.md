@@ -34,19 +34,19 @@ With an intuitive interface, powerful simulation features, and multi-project sup
 ## 🧠 Random Interpolation System
 
 Mockondo supports **random interpolation** to make mock responses more dynamic and lifelike.  
-Use placeholders like `{{ random.integer.100 }}` or `{{ random.image.400x400.text }}` inside your mock responses.
+Use placeholders like `${random.integer.100}` or `${random.image.400x400.text}` inside your mock responses.
 
 ### 🎲 Available Interpolations
 | Interpolation                     | Description                                    | Example Output                                      |
 |-----------------------------------|------------------------------------------------|-----------------------------------------------------|
-| `{{ random.index }}`              | Returns the current data index                 | `5`                                                 |
-| `{{ random.integer.100 }}`        | Random integer between 0–99                    | `42`                                                |
-| `{{ random.double.10.0 }}`        | Random floating-point number up to a given max | `7.2183`                                            |
-| `{{ random.string.20 }}`          | Random string of 20 characters                 | `"z8gPDk31MhsY9qZwUXfP"`                            |
-| `{{ random.uuid }}`               | Random UUID v4                                 | `"e7a9e2b4-5e6f-44a9-b812-bffb0db6c7c4"`            |
-| `{{ random.image.400x400 }}`      | Placeholder image                              | `"https://placehold.co/400x400"`                    |
-| `{{ random.image.400x400.index }}`| Image with text based on index                 | `"https://placehold.co/400x400?text=Item+5"`        |
-| `{{ random.image.400x400.text }}` | Image with custom text                         | `"https://placehold.co/400x400?text=text"`          |
+| `${random.index}`              | Returns the current data index                 | `5`                                                 |
+| `${random.integer.100}`        | Random integer between 0–99                    | `42`                                                |
+| `${random.double.10.0}`        | Random floating-point number up to a given max | `7.2183`                                            |
+| `${random.string.20}`          | Random string of 20 characters                 | `"z8gPDk31MhsY9qZwUXfP"`                            |
+| `${random.uuid}`               | Random UUID v4                                 | `"e7a9e2b4-5e6f-44a9-b812-bffb0db6c7c4"`            |
+| `${random.image.400x400}`      | Placeholder image                              | `"https://placehold.co/400x400"`                    |
+| `${random.image.400x400.index}`| Image with text based on index                 | `"https://placehold.co/400x400?text=Item+5"`        |
+| `${random.image.400x400.text}` | Image with custom text                         | `"https://placehold.co/400x400?text=text"`          |
 
 
 ----------
@@ -56,14 +56,14 @@ Mockondo provides pagination-related interpolations to simulate realistic pagina
 
 | Interpolation                              | Description                                     | Example |
 |---------------------------------------------|-------------------------------------------------|----------|
-| `{{ pagination.data }}`                     | Returns data for the current page               | –        |
-| `{{ pagination.request.url.query.page }}`   | Gets the `page` parameter from the request URL  | `2`      |
+| `${pagination.data}`                     | Returns data for the current page               | –        |
+| `${pagination.request.url.query.page}`   | Gets the `page` parameter from the request URL  | `2`      |
 
 **Example usage:**
 ```json
 {
-  "page": {{ pagination.request.url.query.page }},
-  "data": {{ pagination.data }}
+  "page": ${pagination.request.url.query.page},
+  "data": ${pagination.data}
 }
 ```
 
@@ -74,7 +74,7 @@ Request interpolation allows you to dynamically use request parameters (like URL
 
 | Interpolation                 | Description                                   | Example |
 |-------------------------------|-----------------------------------------------|----------|
-| `{{ request.url.query.page }}` | Reads the `page` query parameter from the URL | `3`      |
+| `${request.url.query.page}` | Reads the `page` query parameter from the URL | `3`      |
 
 **Example request:**
 GET /api/items?page=3
@@ -83,7 +83,7 @@ GET /api/items?page=3
 **Mock response:**
 ```json
 {
-  "current_page": {{ request.url.query.page }}
+  "current_page": ${request.url.query.page}
 }
 ```
 
@@ -108,14 +108,14 @@ They can define a mock response like this:
 
 ```json
 {
-  "page": {{ request.url.query.page }},
+  "page": ${request.url.query.page},
   "total": 50,
   "products": [
     {
-      "id": {{ random.uuid }},
-      "name": {{ random.string.10 }},
-      "price": {{ random.integer.1000 }},
-      "thumbnail": {{ random.image.200x200.index }}
+      "id": ${random.uuid},
+      "name": ${random.string.10},
+      "price": ${random.integer.1000},
+      "thumbnail": ${random.image.200x200.index}
     }
   ]
 }

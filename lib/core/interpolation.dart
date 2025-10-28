@@ -78,7 +78,7 @@ class Interpolation {
   ) {
     final method = keys.length > 2 ? '${keys[0]}.${keys[1]}' : keys.join('.');
     switch (method) {
-      /// request.url.page
+      /// request.url.query.page
       case 'request.url':
         if (keys.length == 4 && keys[2] == 'query') {
           final param = request?.url.queryParameters[keys[3]] ?? '';
@@ -90,6 +90,16 @@ class Interpolation {
 
           return jsonEncode(param);
         }
+
+        /// request.url.path.1
+        /// for get data from path
+        /// example : https://example.com/transaction/<transaction_id>
+        if (keys.length == 4 && keys[2] == 'path') {
+          final paths = request?.url.pathSegments[int.tryParse(keys[3]) ?? 0];
+
+          return jsonEncode(paths);
+        }
+
         return data;
 
       ///TODO: header
