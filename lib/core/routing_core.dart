@@ -5,7 +5,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 
 class RoutingCore {
-  static shelf_router.Router getRouter(String method, MockModel mockModel) {
+  shelf_router.Router getRouter(String method, MockModel mockModel) {
     final rules = mockModel.rules ?? [];
     final pagination = rules.firstWhereOrNull(
       (e) => e.type == RulesType.pagination,

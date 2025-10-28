@@ -30,7 +30,7 @@ class GenerateCore {
         return Interpolation().excute(
           before: responseBody,
           data: encoded,
-          type: InterpolationType.pagination,
+          request: request,
         );
       }
 
@@ -39,7 +39,7 @@ class GenerateCore {
           Interpolation().excute(
             before: pagination.response,
             data: '${(limit * offset) + i}',
-            type: InterpolationType.pagination,
+            request: request,
           ),
         );
         generatePagination.add(jsonEncode(decode));
@@ -53,7 +53,7 @@ class GenerateCore {
     return Interpolation().excute(
       before: responseBody,
       data: encoded,
-      type: InterpolationType.pagination,
+      request: request,
     );
   }
 }

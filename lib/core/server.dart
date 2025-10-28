@@ -158,7 +158,12 @@ class MainServer {
   }
 
   Future<void> run() async {
-    server = await serve(_buildHandler(), InternetAddress.anyIPv4, _port);
+    server = await serve(
+      _buildHandler(),
+      InternetAddress.anyIPv4,
+      _port,
+      shared: true,
+    );
     _isRunning = true;
     logService.record(
       LogModel(

@@ -56,6 +56,8 @@ class _ResponseWidgetState extends State<ResponseWidget> {
   final limitParamController = TextEditingController();
   final maxController = TextEditingController();
 
+  var isUsePagination = false;
+
   @override
   void dispose() {
     headerResponseController.dispose();
@@ -102,6 +104,11 @@ class _ResponseWidgetState extends State<ResponseWidget> {
     ///comming soon
     // customOffsetController = TextEditingController();
     // customLimitController = TextEditingController();
+
+    isUsePagination =
+        homeController.isPagination(widget.endpointIndex) == null
+            ? false
+            : true;
 
     super.initState();
   }
@@ -283,285 +290,299 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                                   ],
                                 ),
                               ),
+                              Switch(
+                                activeThumbColor: AppColors.greenD,
+                                value: isUsePagination,
+                                onChanged: (value) {
+                                  isUsePagination = value;
+                                  setState(() {});
+                                },
+                              ),
                             ],
                           ),
                           // Add more pagination settings widgets here
                           SizedBox(height: 10),
 
-                          /// offset
-                          Row(
-                            children: [
-                              SizedBox(
-                                height: 30,
-                                child: IconButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () {
-                                    selectedOffsetType = OffsetType.param;
-                                    setState(() {});
-                                  },
-                                  icon: Icon(
-                                    selectedOffsetType.isParam()
-                                        ? Icons.radio_button_checked_rounded
-                                        : Icons.radio_button_off_rounded,
-                                    color:
-                                        selectedOffsetType.isParam()
-                                            ? colors(context).greenDarkness
-                                            : null,
+                          if (!isUsePagination) ...[
+                            SizedBox(),
+                          ] else ...[
+                            /// offset
+                            Row(
+                              children: [
+                                // SizedBox(
+                                //   height: 30,
+                                //   child: IconButton(
+                                //     padding: EdgeInsets.zero,
+                                //     onPressed: () {
+                                //       selectedOffsetType = OffsetType.param;
+                                //       setState(() {});
+                                //     },
+                                //     icon: Icon(
+                                //       selectedOffsetType.isParam()
+                                //           ? Icons.radio_button_checked_rounded
+                                //           : Icons.radio_button_off_rounded,
+                                //       color:
+                                //           selectedOffsetType.isParam()
+                                //               ? colors(context).greenDarkness
+                                //               : null,
+                                //     ),
+                                //   ),
+                                // ),
+                                // SizedBox(width: 5),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Query Param for page',
+                                        style: TextStyle(
+                                          color: AppColors.textD,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'page'",
+                                        style: TextStyle(
+                                          color: AppColors.textD,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      SizedBox(height: 5),
+                                      SizedBox(
+                                        height: 30,
+                                        child: CustomTextField(
+                                          controller: offsetParamController,
+                                          hintText: 'Input here!',
+                                          readOnly: widget.server.isRunning,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: 5),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Query Param for page',
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'page'",
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    SizedBox(height: 5),
-                                    SizedBox(
-                                      height: 30,
-                                      child: CustomTextField(
-                                        controller: offsetParamController,
-                                        hintText: 'Input here!',
-                                        readOnly: widget.server.isRunning,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          Divider(),
-
-                          /// comming soon
-                          // Row(
-                          //   children: [
-                          //     SizedBox(
-                          //       height: 30,
-                          //       child: IconButton(
-                          //         padding: EdgeInsets.zero,
-                          //         onPressed: () {
-                          //           selectedOffsetType = OffsetType.custom;
-                          //           setState(() {});
-                          //         },
-                          //         icon: Icon(
-                          //           !selectedOffsetType.isParam()
-                          //               ? Icons.radio_button_checked_rounded
-                          //               : Icons.radio_button_off_rounded,
-                          //           color:
-                          //               !selectedOffsetType.isParam()
-                          //                   ? colors(context).greenDarkness
-                          //                   : null,
-                          //         ),
-                          //       ),
-                          //     ),
-                          //     SizedBox(width: 5),
-                          //     Expanded(
-                          //       child: Column(
-                          //         crossAxisAlignment: CrossAxisAlignment.start,
-                          //         children: [
-                          //           Text(
-                          //             'Custom Offset',
-                          //             style: TextStyle(
-                          //               color: AppColors.textD,
-                          //               fontSize: 12,
-                          //             ),
-                          //           ),
-                          //           Text(
-                          //             'Has a "page" parameter in the query params',
-                          //             style: TextStyle(
-                          //               color: AppColors.textD,
-                          //               fontSize: 10,
-                          //             ),
-                          //           ),
-                          //           SizedBox(height: 5),
-                          //           SizedBox(
-                          //             height: 30,
-                          //             child: CustomTextField(
-                          //               controller: customOffsetController,
-                          //               hintText: 'Input offset of data',
-                          //               keyboardType: TextInputType.number,
-                          //               inputFormatters: [
-                          //                 FilteringTextInputFormatter
-                          //                     .digitsOnly,
-                          //               ],
-                          //               readOnly: widget.server.isRunning,
-                          //             ),
-                          //           ),
-                          //         ],
-                          //       ),
-                          //     ),
-                          //   ],
-                          // ),
-                          SizedBox(height: 10),
-
-                          /// limit
-                          Row(
-                            children: [
-                              SizedBox(
-                                height: 30,
-                                child: IconButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () {
-                                    selectedLimitType = OffsetType.param;
-                                    setState(() {});
-                                  },
-                                  icon: Icon(
-                                    selectedLimitType.isParam()
-                                        ? Icons.radio_button_checked_rounded
-                                        : Icons.radio_button_off_rounded,
-                                    color:
-                                        selectedLimitType.isParam()
-                                            ? colors(context).greenDarkness
-                                            : null,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 5),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Query Param for limit',
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'limit'",
-                                      style: TextStyle(
-                                        color: AppColors.textD,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    SizedBox(height: 5),
-                                    SizedBox(
-                                      height: 30,
-                                      child: CustomTextField(
-                                        controller: limitParamController,
-                                        hintText: 'Input here!',
-                                        readOnly: widget.server.isRunning,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          Divider(),
-                          // Row(
-                          //   children: [
-                          //     SizedBox(
-                          //       height: 30,
-                          //       child: IconButton(
-                          //         padding: EdgeInsets.zero,
-                          //         onPressed: () {
-                          //           selectedLimitType = OffsetType.custom;
-                          //           setState(() {});
-                          //         },
-                          //         icon: Icon(
-                          //           !selectedLimitType.isParam()
-                          //               ? Icons.radio_button_checked_rounded
-                          //               : Icons.radio_button_off_rounded,
-                          //           color:
-                          //               !selectedLimitType.isParam()
-                          //                   ? colors(context).greenDarkness
-                          //                   : null,
-                          //         ),
-                          //       ),
-                          //     ),
-                          //     SizedBox(width: 5),
-                          //     Expanded(
-                          //       child: Column(
-                          //         crossAxisAlignment: CrossAxisAlignment.start,
-                          //         children: [
-                          //           Text(
-                          //             'Custom Limit',
-                          //             style: TextStyle(
-                          //               color: AppColors.textD,
-                          //               fontSize: 12,
-                          //             ),
-                          //           ),
-                          //           Text(
-                          //             'Has a "page" parameter in the query params',
-                          //             style: TextStyle(
-                          //               color: AppColors.textD,
-                          //               fontSize: 10,
-                          //             ),
-                          //           ),
-                          //           SizedBox(height: 5),
-                          //           SizedBox(
-                          //             height: 30,
-                          //             child: CustomTextField(
-                          //               controller: customLimitController,
-                          //               hintText: 'Input offset of data',
-                          //               keyboardType: TextInputType.number,
-                          //               inputFormatters: [
-                          //                 FilteringTextInputFormatter
-                          //                     .digitsOnly,
-                          //               ],
-                          //               readOnly: widget.server.isRunning,
-                          //             ),
-                          //           ),
-                          //         ],
-                          //       ),
-                          //     ),
-                          //   ],
-                          // ),
-                          SizedBox(height: 10),
-
-                          SizedBox(height: 10),
-                          Text(
-                            'Max Data',
-                            style: TextStyle(
-                              color: AppColors.textD,
-                              fontSize: 12,
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          SizedBox(
-                            height: 30,
-                            child: CustomTextField(
-                              hintText: 'Input here!',
-                              controller: maxController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
                               ],
-                              readOnly: widget.server.isRunning,
                             ),
-                          ),
-                          SizedBox(height: 20),
-                          Text(
-                            'The data to be returned in the pagination',
-                            style: TextStyle(
-                              color: AppColors.textD,
-                              fontSize: 12,
+                            Divider(),
+
+                            /// comming soon
+                            // Row(
+                            //   children: [
+                            //     SizedBox(
+                            //       height: 30,
+                            //       child: IconButton(
+                            //         padding: EdgeInsets.zero,
+                            //         onPressed: () {
+                            //           selectedOffsetType = OffsetType.custom;
+                            //           setState(() {});
+                            //         },
+                            //         icon: Icon(
+                            //           !selectedOffsetType.isParam()
+                            //               ? Icons.radio_button_checked_rounded
+                            //               : Icons.radio_button_off_rounded,
+                            //           color:
+                            //               !selectedOffsetType.isParam()
+                            //                   ? colors(context).greenDarkness
+                            //                   : null,
+                            //         ),
+                            //       ),
+                            //     ),
+                            //     SizedBox(width: 5),
+                            //     Expanded(
+                            //       child: Column(
+                            //         crossAxisAlignment: CrossAxisAlignment.start,
+                            //         children: [
+                            //           Text(
+                            //             'Custom Offset',
+                            //             style: TextStyle(
+                            //               color: AppColors.textD,
+                            //               fontSize: 12,
+                            //             ),
+                            //           ),
+                            //           Text(
+                            //             'Has a "page" parameter in the query params',
+                            //             style: TextStyle(
+                            //               color: AppColors.textD,
+                            //               fontSize: 10,
+                            //             ),
+                            //           ),
+                            //           SizedBox(height: 5),
+                            //           SizedBox(
+                            //             height: 30,
+                            //             child: CustomTextField(
+                            //               controller: customOffsetController,
+                            //               hintText: 'Input offset of data',
+                            //               keyboardType: TextInputType.number,
+                            //               inputFormatters: [
+                            //                 FilteringTextInputFormatter
+                            //                     .digitsOnly,
+                            //               ],
+                            //               readOnly: widget.server.isRunning,
+                            //             ),
+                            //           ),
+                            //         ],
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
+                            SizedBox(height: 10),
+
+                            /// limit
+                            Row(
+                              children: [
+                                // SizedBox(
+                                //   height: 30,
+                                //   child: IconButton(
+                                //     padding: EdgeInsets.zero,
+                                //     onPressed: () {
+                                //       selectedLimitType = OffsetType.param;
+                                //       setState(() {});
+                                //     },
+                                //     icon: Icon(
+                                //       selectedLimitType.isParam()
+                                //           ? Icons.radio_button_checked_rounded
+                                //           : Icons.radio_button_off_rounded,
+                                //       color:
+                                //           selectedLimitType.isParam()
+                                //               ? colors(context).greenDarkness
+                                //               : null,
+                                //     ),
+                                //   ),
+                                // ),
+                                // SizedBox(width: 5),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Query Param for limit',
+                                        style: TextStyle(
+                                          color: AppColors.textD,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'limit'",
+                                        style: TextStyle(
+                                          color: AppColors.textD,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                      SizedBox(height: 5),
+                                      SizedBox(
+                                        height: 30,
+                                        child: CustomTextField(
+                                          controller: limitParamController,
+                                          hintText: 'Input here!',
+                                          readOnly: widget.server.isRunning,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          SizedBox(height: 5),
-                          Expanded(
-                            child: CustomJsonTextField(
-                              hintText: 'Input here!',
-                              controller: dataPaginationController,
-                              onChanged: (data) {},
-                              readOnly: widget.server.isRunning,
+                            Divider(),
+                            // Row(
+                            //   children: [
+                            //     SizedBox(
+                            //       height: 30,
+                            //       child: IconButton(
+                            //         padding: EdgeInsets.zero,
+                            //         onPressed: () {
+                            //           selectedLimitType = OffsetType.custom;
+                            //           setState(() {});
+                            //         },
+                            //         icon: Icon(
+                            //           !selectedLimitType.isParam()
+                            //               ? Icons.radio_button_checked_rounded
+                            //               : Icons.radio_button_off_rounded,
+                            //           color:
+                            //               !selectedLimitType.isParam()
+                            //                   ? colors(context).greenDarkness
+                            //                   : null,
+                            //         ),
+                            //       ),
+                            //     ),
+                            //     SizedBox(width: 5),
+                            //     Expanded(
+                            //       child: Column(
+                            //         crossAxisAlignment: CrossAxisAlignment.start,
+                            //         children: [
+                            //           Text(
+                            //             'Custom Limit',
+                            //             style: TextStyle(
+                            //               color: AppColors.textD,
+                            //               fontSize: 12,
+                            //             ),
+                            //           ),
+                            //           Text(
+                            //             'Has a "page" parameter in the query params',
+                            //             style: TextStyle(
+                            //               color: AppColors.textD,
+                            //               fontSize: 10,
+                            //             ),
+                            //           ),
+                            //           SizedBox(height: 5),
+                            //           SizedBox(
+                            //             height: 30,
+                            //             child: CustomTextField(
+                            //               controller: customLimitController,
+                            //               hintText: 'Input offset of data',
+                            //               keyboardType: TextInputType.number,
+                            //               inputFormatters: [
+                            //                 FilteringTextInputFormatter
+                            //                     .digitsOnly,
+                            //               ],
+                            //               readOnly: widget.server.isRunning,
+                            //             ),
+                            //           ),
+                            //         ],
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
+                            SizedBox(height: 10),
+
+                            SizedBox(height: 10),
+                            Text(
+                              'Total Data',
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
+                            SizedBox(height: 5),
+                            SizedBox(
+                              height: 30,
+                              child: CustomTextField(
+                                hintText: 'Input here!',
+                                controller: maxController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                readOnly: widget.server.isRunning,
+                              ),
+                            ),
+                            SizedBox(height: 20),
+                            Text(
+                              'The data to be returned in the pagination',
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: 12,
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            Expanded(
+                              child: CustomJsonTextField(
+                                hintText: 'Input here!',
+                                controller: dataPaginationController,
+                                onChanged: (data) {},
+                                readOnly: widget.server.isRunning,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -583,34 +604,38 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                   // ),
                   ElevatedButton(
                     onPressed: () {
-                      homeController.setPagination(
-                        widget.endpointIndex,
-                        dataPaginationController.text.removeAllWhitespace
-                            .trim(),
-                        PaginationParams(
-                          customLimit:
-                              selectedLimitType.isParam()
-                                  ? null
-                                  : int.parse(
-                                    customLimitController.text.trim(),
-                                  ),
-                          limitParam:
-                              !selectedLimitType.isParam()
-                                  ? null
-                                  : limitParamController.text.trim(),
-                          customOffset:
-                              selectedOffsetType.isParam()
-                                  ? null
-                                  : int.parse(
-                                    customOffsetController.text.trim(),
-                                  ),
-                          offsetParam:
-                              !selectedOffsetType.isParam()
-                                  ? null
-                                  : offsetParamController.text.trim(),
-                          max: int.tryParse(maxController.text.trim()) ?? 0,
-                        ),
-                      );
+                      if (isUsePagination) {
+                        homeController.setPagination(
+                          widget.endpointIndex,
+                          dataPaginationController.text.removeAllWhitespace
+                              .trim(),
+                          PaginationParams(
+                            customLimit:
+                                selectedLimitType.isParam()
+                                    ? null
+                                    : int.parse(
+                                      customLimitController.text.trim(),
+                                    ),
+                            limitParam:
+                                !selectedLimitType.isParam()
+                                    ? null
+                                    : limitParamController.text.trim(),
+                            customOffset:
+                                selectedOffsetType.isParam()
+                                    ? null
+                                    : int.parse(
+                                      customOffsetController.text.trim(),
+                                    ),
+                            offsetParam:
+                                !selectedOffsetType.isParam()
+                                    ? null
+                                    : offsetParamController.text.trim(),
+                            max: int.tryParse(maxController.text.trim()) ?? 0,
+                          ),
+                        );
+                      } else {
+                        homeController.removePagination(widget.endpointIndex);
+                      }
 
                       homeController.saveAllResponseConfig(
                         endpointIndex: widget.endpointIndex,

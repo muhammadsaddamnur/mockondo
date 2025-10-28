@@ -520,6 +520,7 @@ class _HomePageState extends State<HomePage> {
                       ? Colors.red
                       : colors(context).greenDarkness,
               onPressed: () async {
+                homeController.getIpAddress();
                 homeController
                     .mockModels[homeController.selectedMockModelIndex.value]
                     ?.server
@@ -568,7 +569,7 @@ class _HomePageState extends State<HomePage> {
                         <MockModel>[]) {
                   if (!mockModel.enable) continue;
                   // Tambah router baru
-                  final customRouter = RoutingCore.getRouter(
+                  final customRouter = RoutingCore().getRouter(
                     mockModel.method,
                     mockModel,
                   );

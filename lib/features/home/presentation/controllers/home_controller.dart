@@ -19,12 +19,12 @@ class HomeController extends GetxController {
 
   @override
   void onInit() {
-    _getIpAddress();
+    getIpAddress();
     load();
     super.onInit();
   }
 
-  Future<void> _getIpAddress() async {
+  Future<void> getIpAddress() async {
     final info = NetworkInfo();
     final wifiIP = await info.getWifiIP(); // IP lokal di jaringan Wi-Fi
 
@@ -96,7 +96,7 @@ class HomeController extends GetxController {
       ),
     );
 
-    _getIpAddress();
+    getIpAddress();
     hostController.text = '';
     portController.text = port.toString();
     save();
@@ -136,6 +136,18 @@ class HomeController extends GetxController {
         .rules
         ?.firstWhere((rule) => rule.type == RulesType.pagination);
     return s;
+  }
+
+  removePagination(int endpointIndex) {
+    final rules =
+        mockModels[selectedMockModelIndex.value]
+            ?.mockModels[endpointIndex]
+            .rules ??
+        [];
+
+    if (isPagination(endpointIndex) != null) {
+      rules.removeWhere((rule) => rule.type == RulesType.pagination);
+    }
   }
 
   setPagination(
@@ -198,11 +210,14 @@ class HomeController extends GetxController {
   }
 }
 
+enum OffsetType { offset, page }
+
 class PaginationParams {
   final int? customLimit;
   final String? limitParam;
   final int? customOffset;
   final String? offsetParam;
+  final OffsetType? offsetType;
   final int max;
 
   PaginationParams({
@@ -211,6 +226,7 @@ class PaginationParams {
     this.customOffset,
     required this.max,
     this.offsetParam,
+    this.offsetType,
   });
 
   Map<String, dynamic> toJson() {
@@ -219,6 +235,7 @@ class PaginationParams {
       'limit_param': limitParam,
       'custom_offset': customOffset,
       'offset_param': offsetParam,
+      'offset_type': offsetType,
       'max': max,
     };
   }
@@ -229,6 +246,9 @@ class PaginationParams {
       limitParam: json['limit_param'] as String?,
       customOffset: json['custom_offset'] as int?,
       offsetParam: json['offset_param'] as String?,
+      offsetType: OffsetType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['offset_type'],
+      ),
       max: json['max'] as int? ?? 0,
     );
   }
