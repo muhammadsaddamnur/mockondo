@@ -18,14 +18,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final homeController = Get.put(HomeController());
-  var reset = false;
-
-  Future<void> change() async {
-    reset = true;
-    await Future.delayed(Duration(milliseconds: 10));
-    reset = false;
-    setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,16 +36,7 @@ class _HomePageState extends State<HomePage> {
                       homeController.mockModels.length,
                       (index) => InkWell(
                         onTap: () {
-                          final mock =
-                              homeController.mockModels[homeController
-                                  .selectedMockModelIndex
-                                  .value];
-                          homeController.selectedMockModelIndex.value = index;
-                          homeController.hostController.text = mock?.host ?? '';
-                          homeController.portController.text =
-                              (mock?.port ?? 8080).toString();
-                          change();
-                          setState(() {});
+                          homeController.changeProject(index);
                         },
                         onSecondaryTap: () {
                           showDialog(
@@ -118,14 +101,36 @@ class _HomePageState extends State<HomePage> {
                           child: Stack(
                             children: [
                               Center(
-                                child: Text(
-                                  homeController.mockModels[index]?.name ??
-                                      'Unnamed Project',
-                                  style: TextStyle(
-                                    color: AppColors.textD,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      homeController.mockModels[index]?.name ??
+                                          'Unnamed Project',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: AppColors.textD,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      child: Text(
+                                        '${homeController.ipAddress.value}:${homeController.mockModels[index]?.port.toString() ?? '8080'}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: AppColors.textD,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               (homeController
@@ -137,10 +142,14 @@ class _HomePageState extends State<HomePage> {
                                     alignment: AlignmentGeometry.centerLeft,
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
-                                      child: Icon(
-                                        Icons.wifi,
-                                        color: AppColors.greenD,
-                                        size: 15,
+                                      child: CircleAvatar(
+                                        radius: 10,
+                                        backgroundColor: AppColors.greenD,
+                                        child: Icon(
+                                          Icons.wifi,
+                                          color: AppColors.backgroundD,
+                                          size: 15,
+                                        ),
                                       ),
                                     ),
                                   )
@@ -190,21 +199,24 @@ class _HomePageState extends State<HomePage> {
                               child: SizedBox(
                                 height: 30,
                                 child: Center(
-                                  child: CustomTextField(
-                                    controller: homeController.hostController,
-                                    hintText:
-                                        'Proxy Target URL : https://example.com',
-                                    readOnly: serverIsRunning,
-                                    onChanged: (value) async {
-                                      homeController
-                                          .mockModels[homeController
-                                              .selectedMockModelIndex
-                                              .value]!
-                                          .host = value;
-                                      await homeController.save();
-                                      setState(() {});
-                                    },
-                                  ),
+                                  child: Obx(() {
+                                    return CustomTextField(
+                                      controller:
+                                          homeController.hostController.value,
+                                      hintText:
+                                          'Proxy Target URL : https://example.com',
+                                      readOnly: serverIsRunning,
+                                      onChanged: (value) async {
+                                        homeController
+                                            .mockModels[homeController
+                                                .selectedMockModelIndex
+                                                .value]!
+                                            .host = value;
+                                        await homeController.save();
+                                        setState(() {});
+                                      },
+                                    );
+                                  }),
                                 ),
                               ),
                             ),
@@ -220,13 +232,15 @@ class _HomePageState extends State<HomePage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        SelectableText(
-                                          '${homeController.ipAddress.value}${!serverIsRunning ? '' : ':${homeController.mockModels[homeController.selectedMockModelIndex.value]?.server?.port}'}',
-                                          style: TextStyle(
-                                            color: AppColors.textD,
-                                            fontSize: 14,
-                                          ),
-                                        ),
+                                        Obx(() {
+                                          return SelectableText(
+                                            '${homeController.ipAddress.value}${!serverIsRunning ? '' : ':${homeController.mockModels[homeController.selectedMockModelIndex.value]?.server?.port}'}',
+                                            style: TextStyle(
+                                              color: AppColors.textD,
+                                              fontSize: 14,
+                                            ),
+                                          );
+                                        }),
                                         Text(
                                           'your ip address',
                                           style: TextStyle(
@@ -246,26 +260,29 @@ class _HomePageState extends State<HomePage> {
                               height: 30,
                               width: 100,
                               child: Center(
-                                child: CustomTextField(
-                                  controller: homeController.portController,
-                                  hintText: 'Port',
-                                  readOnly: serverIsRunning,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  onChanged: (value) async {
-                                    homeController
-                                        .mockModels[homeController
-                                            .selectedMockModelIndex
-                                            .value]!
-                                        .port = int.parse(
-                                      value.isEmpty ? '8080' : value,
-                                    );
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                ),
+                                child: Obx(() {
+                                  return CustomTextField(
+                                    controller:
+                                        homeController.portController.value,
+                                    hintText: 'Port',
+                                    readOnly: serverIsRunning,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    onChanged: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .port = int.parse(
+                                        value.isEmpty ? '8080' : value,
+                                      );
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                  );
+                                }),
                               ),
                             ),
                           ],
@@ -317,8 +334,6 @@ class _HomePageState extends State<HomePage> {
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Obx(() {
-                          if (reset) return SizedBox();
-
                           return ListView.builder(
                             itemCount:
                                 homeController
@@ -556,8 +571,8 @@ class _HomePageState extends State<HomePage> {
                         .mockModels[homeController.selectedMockModelIndex.value]
                         ?.port ??
                     8080;
-                if (homeController.portController.text.isEmpty) {
-                  homeController.portController.text =
+                if (homeController.portController.value.text.isEmpty) {
+                  homeController.portController.value.text =
                       homeController
                           .mockModels[homeController
                               .selectedMockModelIndex

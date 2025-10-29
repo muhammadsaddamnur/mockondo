@@ -10,8 +10,8 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeController extends GetxController {
-  final hostController = TextEditingController();
-  final portController = TextEditingController();
+  final hostController = TextEditingController().obs;
+  final portController = TextEditingController().obs;
   final showLog = false.obs;
   final ipAddress = ''.obs;
   final mockModels = <MockData?>[].obs;
@@ -22,6 +22,14 @@ class HomeController extends GetxController {
     getIpAddress();
     load();
     super.onInit();
+  }
+
+  changeProject(int index) {
+    selectedMockModelIndex.value = index;
+    final mock = mockModels[index];
+    hostController.value.text = mock?.host ?? '';
+    portController.value.text = (mock?.port ?? 8080).toString();
+    update();
   }
 
   Future<void> getIpAddress() async {
@@ -72,8 +80,9 @@ class HomeController extends GetxController {
         (jsonDecode(data) as List<dynamic>)
             .map((e) => MockData.fromJson(e as Map<String, dynamic>))
             .toList();
-    hostController.text = mockModels[selectedMockModelIndex.value]?.host ?? '';
-    portController.text =
+    hostController.value.text =
+        mockModels[selectedMockModelIndex.value]?.host ?? '';
+    portController.value.text =
         (mockModels[selectedMockModelIndex.value]?.port ?? 8080).toString();
 
     if (mockModels.isNotEmpty) {
@@ -97,8 +106,8 @@ class HomeController extends GetxController {
     );
 
     getIpAddress();
-    hostController.text = '';
-    portController.text = port.toString();
+    hostController.value.text = '';
+    portController.value.text = port.toString();
     save();
   }
 
@@ -110,12 +119,12 @@ class HomeController extends GetxController {
     }
 
     if (mockModels.isEmpty) {
-      hostController.text = '';
-      portController.text = '';
+      hostController.value.text = '';
+      portController.value.text = '';
     } else {
-      hostController.text =
+      hostController.value.text =
           mockModels[selectedMockModelIndex.value]?.host ?? '';
-      portController.text =
+      portController.value.text =
           (mockModels[selectedMockModelIndex.value]?.port ?? 8080).toString();
     }
 
