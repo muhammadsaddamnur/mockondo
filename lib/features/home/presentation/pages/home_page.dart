@@ -115,16 +115,39 @@ class _HomePageState extends State<HomePage> {
                                   ? AppColors.textD.withValues(alpha: 0.3)
                                   : Colors.transparent,
                           height: 50,
-                          child: Center(
-                            child: Text(
-                              homeController.mockModels[index]?.name ??
-                                  'Unnamed Project',
-                              style: TextStyle(
-                                color: AppColors.textD,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                          child: Stack(
+                            children: [
+                              Expanded(
+                                child: Center(
+                                  child: Text(
+                                    homeController.mockModels[index]?.name ??
+                                        'Unnamed Project',
+                                    style: TextStyle(
+                                      color: AppColors.textD,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              (homeController
+                                          .mockModels[index]
+                                          ?.server
+                                          ?.isRunning ??
+                                      false)
+                                  ? Align(
+                                    alignment: AlignmentGeometry.centerLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Icon(
+                                        Icons.wifi,
+                                        color: AppColors.greenD,
+                                        size: 15,
+                                      ),
+                                    ),
+                                  )
+                                  : SizedBox(),
+                            ],
                           ),
                         ),
                       ),
