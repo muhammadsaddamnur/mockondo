@@ -117,16 +117,14 @@ class _HomePageState extends State<HomePage> {
                           height: 50,
                           child: Stack(
                             children: [
-                              Expanded(
-                                child: Center(
-                                  child: Text(
-                                    homeController.mockModels[index]?.name ??
-                                        'Unnamed Project',
-                                    style: TextStyle(
-                                      color: AppColors.textD,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                              Center(
+                                child: Text(
+                                  homeController.mockModels[index]?.name ??
+                                      'Unnamed Project',
+                                  style: TextStyle(
+                                    color: AppColors.textD,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),

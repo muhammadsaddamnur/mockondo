@@ -574,13 +574,12 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                               ),
                             ),
                             SizedBox(height: 5),
-                            Expanded(
-                              child: CustomJsonTextField(
-                                hintText: 'Input here!',
-                                controller: dataPaginationController,
-                                onChanged: (data) {},
-                                readOnly: widget.server.isRunning,
-                              ),
+                            CustomJsonTextField(
+                              hintText: 'Input here!',
+                              controller: dataPaginationController,
+                              onChanged: (data) {},
+                              height: 300,
+                              readOnly: widget.server.isRunning,
                             ),
                           ],
                         ],
