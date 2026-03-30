@@ -1,10 +1,32 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:mockondo/core/interpolation.dart';
+
+/// General-purpose utility functions used across the app.
 class Utils {
-  static Map<String, Object>? parseHeader(String jsonString) {
+  /// Parses a JSON string into a `Map<String, Object>` suitable for use as
+  /// HTTP response headers.
+  ///
+  /// When [interpolation] is `true` (the default), any `${...}` placeholders
+  /// inside header values are first resolved by [Interpolation.header] before
+  /// JSON decoding. Pass `interpolation: false` when the string has already
+  /// been processed or when called from within the interpolation pipeline
+  /// (to avoid infinite recursion).
+  ///
+  /// Returns `null` for an empty [jsonString].
+  /// Throws [FormatException] for non-object JSON or invalid value types.
+  static Map<String, Object>? parseHeader(
+    String jsonString, {
+    bool interpolation = true,
+  }) {
     if (jsonString.isEmpty) return null;
-    final decoded = jsonDecode(jsonString);
+    final decoded =
+        interpolation
+            ? jsonDecode(
+              Interpolation().header(header: jsonString.replaceAll('""', '"')),
+            )
+            : jsonDecode(jsonString.replaceAll('""', '"'));
 
     if (decoded is Map<String, dynamic>) {
       return decoded.map((key, value) {
@@ -19,6 +41,9 @@ class Utils {
     }
   }
 
+  /// Generates a random alphanumeric string of the given [length].
+  ///
+  /// Uses upper/lowercase letters and digits (62 possible characters).
   static String randomString(int length) {
     const chars =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

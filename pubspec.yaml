@@ -29,17 +29,24 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   cupertino_icons: ^1.0.8
+  faker: ^2.2.0
   flutter:
     sdk: flutter
+  flutter_easyloading: ^3.0.5
   get: ^4.7.2
   http: ^1.4.0
   network_info_plus: ^6.1.4
   re_editor: ^0.7.0
+  re_highlight: ^0.0.3
   shared_preferences: ^2.5.3
   shelf: ^1.4.2
   shelf_router: ^1.1.4
+  shelf_web_socket: ^2.0.0
+  web_socket_channel: ^3.0.1
   uuid: ^4.5.1
   window_size: ^0.1.0
+  math_expressions: ^3.1.0
+  file_picker: ^8.1.7
 
 dev_dependencies:
   flutter_lints: ^5.0.0

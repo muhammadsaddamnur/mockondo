@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
+import 'package:mockondo/core/export_import_service.dart';
 import 'package:mockondo/features/home/presentation/pages/home_page.dart';
 import 'package:window_size/window_size.dart';
 
@@ -42,10 +44,52 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
+    return GetMaterialApp(
+      title: 'Mockondo',
       theme: getAppTheme(context, ThemeModeType.dark),
-      home: const HomePage(),
+      home: PlatformMenuBar(
+        menus: [
+          // App menu — provides standard macOS items (About, Quit).
+          PlatformMenu(
+            label: 'Mockondo',
+            menus: [
+              if (PlatformProvidedMenuItem.hasMenu(
+                PlatformProvidedMenuItemType.about,
+              ))
+                const PlatformProvidedMenuItem(
+                  type: PlatformProvidedMenuItemType.about,
+                ),
+              if (PlatformProvidedMenuItem.hasMenu(
+                PlatformProvidedMenuItemType.quit,
+              ))
+                const PlatformProvidedMenuItem(
+                  type: PlatformProvidedMenuItemType.quit,
+                ),
+            ],
+          ),
+          // File menu — Export / Import.
+          PlatformMenu(
+            label: 'File',
+            menus: [
+              PlatformMenuItem(
+                label: 'Export…',
+                onSelected: () async {
+                  final ctx = Get.context;
+                  if (ctx != null) await ExportImportService.export(ctx);
+                },
+              ),
+              PlatformMenuItem(
+                label: 'Import…',
+                onSelected: () async {
+                  final ctx = Get.context;
+                  if (ctx != null) await ExportImportService.import(ctx);
+                },
+              ),
+            ],
+          ),
+        ],
+        child: const HomePage(),
+      ),
     );
   }
 }

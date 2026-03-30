@@ -11,6 +11,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
+  final void Function(String)? onSubmitted;
   final double textSize;
   final List<TextInputFormatter>? inputFormatters;
 
@@ -24,8 +25,9 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.onChanged,
+    this.onSubmitted,
     this.inputFormatters,
-    this.textSize = 16, // default 16
+    this.textSize = 16,
   });
 
   @override
@@ -37,6 +39,7 @@ class CustomTextField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
+      onFieldSubmitted: onSubmitted,
       inputFormatters: inputFormatters,
       style: TextStyle(fontSize: textSize, color: AppColors.textD),
       cursorHeight: textSize,
@@ -44,12 +47,12 @@ class CustomTextField extends StatelessWidget {
         prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
         hintText: hintText,
         filled: true,
-        fillColor: Color(0xff3e3e42).withValues(alpha: 0.5),
+        fillColor: AppColors.surfaceD.withValues(alpha: 0.5),
         hintStyle: TextStyle(
           fontSize: textSize * 0.95,
           color: AppColors.textD.withValues(alpha: 0.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(5),
           borderSide: BorderSide.none,

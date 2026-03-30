@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/widgets/code_find.dart';
 import 'package:mockondo/core/widgets/code_menu.dart';
+import 'package:mockondo/core/widgets/interpolation_autocomplete.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/styles/atom-one-light.dart';
 import 'package:re_highlight/languages/json.dart';
@@ -39,6 +40,8 @@ class CustomJsonTextField extends StatefulWidget {
 }
 
 class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
+  static final _promptsBuilder = InterpolationPromptsBuilder();
+
   CodeLines toCodeLines(String input) {
     final lines = input.split('\n');
     // Setiap baris dibungkus jadi CodeLine, lalu jadi CodeLineSegment (karena segmen punya list of CodeLine)
@@ -54,7 +57,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
     return Container(
       height: widget.height,
       decoration: BoxDecoration(
-        color: Color(0xff3e3e42).withValues(alpha: 0.5),
+        color: AppColors.surfaceD.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(5),
       ),
       child: Column(
@@ -89,10 +92,13 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                 print('JSON format error: $e');
               }
             },
-            child: Text('Beautify', style: TextStyle(fontSize: 10)),
+            child: Text('Beautify', style: TextStyle(fontSize: AppTextSize.badge)),
           ),
           Expanded(
-            child: CodeEditor(
+            child: CodeAutocomplete(
+              viewBuilder: buildInterpolationAutocompleteView,
+              promptsBuilder: _promptsBuilder,
+              child: CodeEditor(
               controller: widget.controller,
               readOnly: widget.readOnly,
               hint: widget.hintText,
@@ -147,6 +153,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                 ),
                 hintTextColor: AppColors.textD.withValues(alpha: 0.5),
               ),
+            ),
             ),
           ),
         ],

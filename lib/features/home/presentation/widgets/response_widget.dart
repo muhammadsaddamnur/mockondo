@@ -1,16 +1,15 @@
-import 'dart:convert';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/server.dart';
-import 'package:mockondo/core/utils.dart';
+import 'package:mockondo/core/widgets/app_tab_bar.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:mockondo/core/widgets/interpolation_textfield.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
+import 'package:mockondo/features/home/presentation/widgets/rules_widget.dart';
 import 'package:re_editor/re_editor.dart';
 
 enum OffsetType {
@@ -39,15 +38,14 @@ class ResponseWidget extends StatefulWidget {
 class _ResponseWidgetState extends State<ResponseWidget> {
   final homeController = Get.find<HomeController>();
 
-  bool isPagination = false;
-  bool enablePagination = false;
+  int tab = 0;
 
   final dataPaginationController = CodeLineEditingController();
 
   OffsetType selectedOffsetType = OffsetType.param;
   OffsetType selectedLimitType = OffsetType.param;
 
-  final headerResponseController = CodeLineEditingController();
+  List<_HeaderRow> headerRows = [];
   final bodyResponseController = CodeLineEditingController();
 
   final offsetParamController = TextEditingController();
@@ -60,8 +58,17 @@ class _ResponseWidgetState extends State<ResponseWidget> {
 
   @override
   void dispose() {
-    headerResponseController.dispose();
+    for (final r in headerRows) {
+      r.keyController.dispose();
+      r.valueController.dispose();
+    }
     bodyResponseController.dispose();
+    dataPaginationController.dispose();
+    offsetParamController.dispose();
+    customOffsetController.dispose();
+    customLimitController.dispose();
+    limitParamController.dispose();
+    maxController.dispose();
     super.dispose();
   }
 
@@ -72,10 +79,11 @@ class _ResponseWidgetState extends State<ResponseWidget> {
             .mockModels[homeController.selectedMockModelIndex.value]
             ?.mockModels[widget.endpointIndex];
 
-    headerResponseController.text =
-        mock?.responseHeader == null
-            ? jsonEncode({'Content-Type': 'application/json'})
-            : jsonEncode(mock?.responseHeader);
+    final existingHeader =
+        mock?.responseHeader ?? {'Content-Type': 'application/json'};
+    headerRows = existingHeader.entries
+        .map((e) => _HeaderRow(key: e.key, value: e.value.toString()))
+        .toList();
     bodyResponseController.text = (mock?.responseBody).toString();
 
     offsetParamController.text =
@@ -101,10 +109,6 @@ class _ResponseWidgetState extends State<ResponseWidget> {
             ?.response ??
         '';
 
-    ///comming soon
-    // customOffsetController = TextEditingController();
-    // customLimitController = TextEditingController();
-
     isUsePagination =
         homeController.isPagination(widget.endpointIndex) == null
             ? false
@@ -113,154 +117,171 @@ class _ResponseWidgetState extends State<ResponseWidget> {
     super.initState();
   }
 
+  void _save() {
+    if (isUsePagination) {
+      homeController.setPagination(
+        widget.endpointIndex,
+        dataPaginationController.text.removeAllWhitespace.trim(),
+        PaginationParams(
+          customLimit:
+              selectedLimitType.isParam()
+                  ? null
+                  : int.parse(customLimitController.text.trim()),
+          limitParam:
+              !selectedLimitType.isParam()
+                  ? null
+                  : limitParamController.text.trim(),
+          customOffset:
+              selectedOffsetType.isParam()
+                  ? null
+                  : int.parse(customOffsetController.text.trim()),
+          offsetParam:
+              !selectedOffsetType.isParam()
+                  ? null
+                  : offsetParamController.text.trim(),
+          max: int.tryParse(maxController.text.trim()) ?? 0,
+        ),
+      );
+    } else {
+      homeController.removePagination(widget.endpointIndex);
+    }
+
+    final headers = <String, Object>{};
+    for (final r in headerRows) {
+      final k = r.keyController.text.trim();
+      final v = r.valueController.text.trim();
+      if (k.isNotEmpty) headers[k] = v;
+    }
+
+    homeController.saveAllResponseConfig(
+      endpointIndex: widget.endpointIndex,
+      responseBody: bodyResponseController.text,
+      responseHeader: headers.isEmpty ? null : headers,
+    );
+
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: MediaQuery.sizeOf(context).width / 1.5,
-      height: MediaQuery.sizeOf(context).height / 1.2,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Align(
-              alignment: AlignmentGeometry.centerRight,
-              child: InkWell(
+    final size = MediaQuery.sizeOf(context);
+    return Container(
+      width: (size.width * 0.75).clamp(640, 1100),
+      height: (size.height * 0.80).clamp(500, 800),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundD,
+        borderRadius: BorderRadius.circular(AppSpacing.l),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──────────────────────────────────────────────────
+          Row(
+            children: [
+              Icon(Icons.http_rounded, size: 16, color: AppColors.secondaryD),
+              const SizedBox(width: AppSpacing.s),
+              Text(
+                'Response Configuration',
+                style: TextStyle(
+                  fontSize: AppTextSize.title,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textD,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
                 borderRadius: BorderRadius.circular(25),
                 onTap: () {
-                  headerResponseController.clearHistory();
                   bodyResponseController.clearHistory();
                   Navigator.pop(context);
                 },
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Icon(Icons.close, size: 12),
+                  padding: const EdgeInsets.all(AppSpacing.s),
+                  child: Icon(Icons.close, size: 14, color: AppColors.textD),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.m),
+          Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+          const SizedBox(height: AppSpacing.m),
+
+          // ── Tabs ────────────────────────────────────────────────────
+          AppTabBar(
+            tabs: const ['Normal', 'Pagination', 'Rules'],
+            selected: tab,
+            onTap: (i) => setState(() => tab = i),
+          ),
+          const SizedBox(height: AppSpacing.m),
+
+          // ── Content ─────────────────────────────────────────────────
+          if (tab == 2) ...[
+            Expanded(
+              child: RulesWidget(
+                endpointIndex: widget.endpointIndex,
+                readOnly: widget.server.isRunning,
+              ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      isPagination = false;
-                    });
-                  },
-                  child: Container(
-                    color:
-                        !isPagination
-                            ? AppColors.textD.withValues(alpha: 0.3)
-                            : Colors.transparent,
-                    height: 30,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Normal',
-                          style: TextStyle(
-                            color: AppColors.textD,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      isPagination = true;
-                    });
-                  },
-                  child: Container(
-                    color:
-                        isPagination
-                            ? AppColors.textD.withValues(alpha: 0.3)
-                            : Colors.transparent,
-                    height: 30,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Pagination',
-                          style: TextStyle(
-                            color: AppColors.textD,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 10),
+          ] else ...[
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Left: header + body editors
                   Expanded(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Response Header',
-                              style: TextStyle(
-                                color: AppColors.textD,
-                                fontSize: 12,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            CustomJsonTextField(
-                              hintText: 'Response Header',
-                              height: 150,
-                              controller: headerResponseController,
-                              // onChanged: widget.onChangedHeaderResponse,
-                              onChanged: (c) {},
-                              readOnly: widget.server.isRunning,
-                            ),
-                          ],
+                        Text(
+                          'Response Header',
+                          style: TextStyle(
+                            color: AppColors.textD,
+                            fontSize: AppTextSize.small,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        SizedBox(height: 5),
+                        const SizedBox(height: AppSpacing.xs),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 130),
+                          child: SingleChildScrollView(
+                            child: _HeadersEditor(
+                              rows: headerRows,
+                              readOnly: widget.server.isRunning,
+                              onChanged: () => setState(() {}),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.m),
+                        Text(
+                          'Response Body',
+                          style: TextStyle(
+                            color: AppColors.textD,
+                            fontSize: AppTextSize.small,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Response Body',
-                                style: TextStyle(
-                                  color: AppColors.textD,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              SizedBox(height: 5),
-                              Expanded(
-                                child: CustomJsonTextField(
-                                  hintText: 'Response Body',
-                                  controller: bodyResponseController,
-                                  // onChanged: widget.onChangedBodyResponse,
-                                  onChanged: (c) {},
-                                  readOnly: widget.server.isRunning,
-                                ),
-                              ),
-                            ],
+                          child: CustomJsonTextField(
+                            hintText: 'Response Body',
+                            controller: bodyResponseController,
+                            onChanged: (c) {},
+                            readOnly: widget.server.isRunning,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (isPagination) ...[
-                    SizedBox(width: 10),
+
+                  // Right: pagination (only when tab == 1)
+                  if (tab == 1) ...[
+                    const SizedBox(width: AppSpacing.m),
                     Container(
                       width: 1,
-                      color: AppColors.textD.withValues(alpha: 0.3),
+                      color: AppColors.textD.withValues(alpha: 0.12),
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.m),
                     Expanded(
                       child: ListView(
                         children: [
@@ -274,17 +295,16 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                                       'Pagination Settings',
                                       style: TextStyle(
                                         color: AppColors.textD,
-                                        fontSize: 12,
+                                        fontSize: AppTextSize.small,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    SizedBox(height: 5),
+                                    const SizedBox(height: AppSpacing.xs),
                                     Text(
                                       'Configure your pagination settings here.',
                                       style: TextStyle(
-                                        color: AppColors.textD.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        fontSize: 12,
+                                        color: AppColors.textD.withValues(alpha: 0.6),
+                                        fontSize: AppTextSize.small,
                                       ),
                                     ),
                                   ],
@@ -293,292 +313,70 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                               Switch(
                                 activeThumbColor: AppColors.greenD,
                                 value: isUsePagination,
-                                onChanged: (value) {
-                                  isUsePagination = value;
-                                  setState(() {});
-                                },
+                                onChanged: (value) =>
+                                    setState(() => isUsePagination = value),
                               ),
                             ],
                           ),
-                          // Add more pagination settings widgets here
-                          SizedBox(height: 10),
+                          const SizedBox(height: AppSpacing.m),
 
-                          if (!isUsePagination) ...[
-                            SizedBox(),
-                          ] else ...[
-                            /// offset
-                            Row(
-                              children: [
-                                // SizedBox(
-                                //   height: 30,
-                                //   child: IconButton(
-                                //     padding: EdgeInsets.zero,
-                                //     onPressed: () {
-                                //       selectedOffsetType = OffsetType.param;
-                                //       setState(() {});
-                                //     },
-                                //     icon: Icon(
-                                //       selectedOffsetType.isParam()
-                                //           ? Icons.radio_button_checked_rounded
-                                //           : Icons.radio_button_off_rounded,
-                                //       color:
-                                //           selectedOffsetType.isParam()
-                                //               ? colors(context).greenDarkness
-                                //               : null,
-                                //     ),
-                                //   ),
-                                // ),
-                                // SizedBox(width: 5),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Query Param for page',
-                                        style: TextStyle(
-                                          color: AppColors.textD,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      Text(
-                                        "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'page'",
-                                        style: TextStyle(
-                                          color: AppColors.textD,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                      SizedBox(height: 5),
-                                      SizedBox(
-                                        height: 30,
-                                        child: CustomTextField(
-                                          controller: offsetParamController,
-                                          hintText: 'Input here!',
-                                          readOnly: widget.server.isRunning,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          if (isUsePagination) ...[
+                            _PaginationField(
+                              label: 'Query Param for page',
+                              hint: "e.g. 'page'  (…?page=1&limit=10)",
+                              controller: offsetParamController,
+                              readOnly: widget.server.isRunning,
                             ),
-                            Divider(),
-
-                            /// comming soon
-                            // Row(
-                            //   children: [
-                            //     SizedBox(
-                            //       height: 30,
-                            //       child: IconButton(
-                            //         padding: EdgeInsets.zero,
-                            //         onPressed: () {
-                            //           selectedOffsetType = OffsetType.custom;
-                            //           setState(() {});
-                            //         },
-                            //         icon: Icon(
-                            //           !selectedOffsetType.isParam()
-                            //               ? Icons.radio_button_checked_rounded
-                            //               : Icons.radio_button_off_rounded,
-                            //           color:
-                            //               !selectedOffsetType.isParam()
-                            //                   ? colors(context).greenDarkness
-                            //                   : null,
-                            //         ),
-                            //       ),
-                            //     ),
-                            //     SizedBox(width: 5),
-                            //     Expanded(
-                            //       child: Column(
-                            //         crossAxisAlignment: CrossAxisAlignment.start,
-                            //         children: [
-                            //           Text(
-                            //             'Custom Offset',
-                            //             style: TextStyle(
-                            //               color: AppColors.textD,
-                            //               fontSize: 12,
-                            //             ),
-                            //           ),
-                            //           Text(
-                            //             'Has a "page" parameter in the query params',
-                            //             style: TextStyle(
-                            //               color: AppColors.textD,
-                            //               fontSize: 10,
-                            //             ),
-                            //           ),
-                            //           SizedBox(height: 5),
-                            //           SizedBox(
-                            //             height: 30,
-                            //             child: CustomTextField(
-                            //               controller: customOffsetController,
-                            //               hintText: 'Input offset of data',
-                            //               keyboardType: TextInputType.number,
-                            //               inputFormatters: [
-                            //                 FilteringTextInputFormatter
-                            //                     .digitsOnly,
-                            //               ],
-                            //               readOnly: widget.server.isRunning,
-                            //             ),
-                            //           ),
-                            //         ],
-                            //       ),
-                            //     ),
-                            //   ],
-                            // ),
-                            SizedBox(height: 10),
-
-                            /// limit
-                            Row(
-                              children: [
-                                // SizedBox(
-                                //   height: 30,
-                                //   child: IconButton(
-                                //     padding: EdgeInsets.zero,
-                                //     onPressed: () {
-                                //       selectedLimitType = OffsetType.param;
-                                //       setState(() {});
-                                //     },
-                                //     icon: Icon(
-                                //       selectedLimitType.isParam()
-                                //           ? Icons.radio_button_checked_rounded
-                                //           : Icons.radio_button_off_rounded,
-                                //       color:
-                                //           selectedLimitType.isParam()
-                                //               ? colors(context).greenDarkness
-                                //               : null,
-                                //     ),
-                                //   ),
-                                // ),
-                                // SizedBox(width: 5),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Query Param for limit',
-                                        style: TextStyle(
-                                          color: AppColors.textD,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      Text(
-                                        "Example: if the client sends http://192.0.0.1:8081/mockondo?page=1&limit=10, then the input should be 'limit'",
-                                        style: TextStyle(
-                                          color: AppColors.textD,
-                                          fontSize: 10,
-                                        ),
-                                      ),
-                                      SizedBox(height: 5),
-                                      SizedBox(
-                                        height: 30,
-                                        child: CustomTextField(
-                                          controller: limitParamController,
-                                          hintText: 'Input here!',
-                                          readOnly: widget.server.isRunning,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                            Divider(
+                              height: AppSpacing.xl,
+                              color: AppColors.textD.withValues(alpha: 0.12),
                             ),
-                            Divider(),
-                            // Row(
-                            //   children: [
-                            //     SizedBox(
-                            //       height: 30,
-                            //       child: IconButton(
-                            //         padding: EdgeInsets.zero,
-                            //         onPressed: () {
-                            //           selectedLimitType = OffsetType.custom;
-                            //           setState(() {});
-                            //         },
-                            //         icon: Icon(
-                            //           !selectedLimitType.isParam()
-                            //               ? Icons.radio_button_checked_rounded
-                            //               : Icons.radio_button_off_rounded,
-                            //           color:
-                            //               !selectedLimitType.isParam()
-                            //                   ? colors(context).greenDarkness
-                            //                   : null,
-                            //         ),
-                            //       ),
-                            //     ),
-                            //     SizedBox(width: 5),
-                            //     Expanded(
-                            //       child: Column(
-                            //         crossAxisAlignment: CrossAxisAlignment.start,
-                            //         children: [
-                            //           Text(
-                            //             'Custom Limit',
-                            //             style: TextStyle(
-                            //               color: AppColors.textD,
-                            //               fontSize: 12,
-                            //             ),
-                            //           ),
-                            //           Text(
-                            //             'Has a "page" parameter in the query params',
-                            //             style: TextStyle(
-                            //               color: AppColors.textD,
-                            //               fontSize: 10,
-                            //             ),
-                            //           ),
-                            //           SizedBox(height: 5),
-                            //           SizedBox(
-                            //             height: 30,
-                            //             child: CustomTextField(
-                            //               controller: customLimitController,
-                            //               hintText: 'Input offset of data',
-                            //               keyboardType: TextInputType.number,
-                            //               inputFormatters: [
-                            //                 FilteringTextInputFormatter
-                            //                     .digitsOnly,
-                            //               ],
-                            //               readOnly: widget.server.isRunning,
-                            //             ),
-                            //           ),
-                            //         ],
-                            //       ),
-                            //     ),
-                            //   ],
-                            // ),
-                            SizedBox(height: 10),
-
-                            SizedBox(height: 10),
+                            _PaginationField(
+                              label: 'Query Param for limit',
+                              hint: "e.g. 'limit'  (…?page=1&limit=10)",
+                              controller: limitParamController,
+                              readOnly: widget.server.isRunning,
+                            ),
+                            Divider(
+                              height: AppSpacing.xl,
+                              color: AppColors.textD.withValues(alpha: 0.12),
+                            ),
                             Text(
                               'Total Data',
                               style: TextStyle(
                                 color: AppColors.textD,
-                                fontSize: 12,
+                                fontSize: AppTextSize.small,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: 5),
+                            const SizedBox(height: AppSpacing.xs),
                             SizedBox(
                               height: 30,
                               child: CustomTextField(
-                                hintText: 'Input here!',
+                                hintText: 'e.g. 100',
                                 controller: maxController,
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
                                 readOnly: widget.server.isRunning,
+                                textSize: AppTextSize.body,
                               ),
                             ),
-                            SizedBox(height: 20),
+                            const SizedBox(height: AppSpacing.m),
                             Text(
-                              'The data to be returned in the pagination',
+                              'Data to return per page',
                               style: TextStyle(
                                 color: AppColors.textD,
-                                fontSize: 12,
+                                fontSize: AppTextSize.small,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: 5),
+                            const SizedBox(height: AppSpacing.xs),
                             CustomJsonTextField(
                               hintText: 'Input here!',
                               controller: dataPaginationController,
                               onChanged: (data) {},
-                              height: 300,
                               readOnly: widget.server.isRunning,
                             ),
                           ],
@@ -589,72 +387,205 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // ElevatedButton(
-                  //   onPressed: () {
-                  //     log(dataPaginationController.text.removeAllWhitespace);
-                  //   },
-                  //   style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                  //   child: Text('get'),
-                  // ),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (isUsePagination) {
-                        homeController.setPagination(
-                          widget.endpointIndex,
-                          dataPaginationController.text.removeAllWhitespace
-                              .trim(),
-                          PaginationParams(
-                            customLimit:
-                                selectedLimitType.isParam()
-                                    ? null
-                                    : int.parse(
-                                      customLimitController.text.trim(),
-                                    ),
-                            limitParam:
-                                !selectedLimitType.isParam()
-                                    ? null
-                                    : limitParamController.text.trim(),
-                            customOffset:
-                                selectedOffsetType.isParam()
-                                    ? null
-                                    : int.parse(
-                                      customOffsetController.text.trim(),
-                                    ),
-                            offsetParam:
-                                !selectedOffsetType.isParam()
-                                    ? null
-                                    : offsetParamController.text.trim(),
-                            max: int.tryParse(maxController.text.trim()) ?? 0,
-                          ),
-                        );
-                      } else {
-                        homeController.removePagination(widget.endpointIndex);
-                      }
+          ],
 
-                      homeController.saveAllResponseConfig(
-                        endpointIndex: widget.endpointIndex,
-                        responseBody: bodyResponseController.text,
-                        responseHeader: Utils.parseHeader(
-                          headerResponseController.text,
-                        ),
-                      );
+          // ── Footer ──────────────────────────────────────────────────
+          const SizedBox(height: AppSpacing.m),
+          Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+          const SizedBox(height: AppSpacing.m),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: AppColors.textD,
+                    fontSize: AppTextSize.body,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.m),
+              ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(elevation: 0),
+                child: const Text(
+                  'Save Changes',
+                  style: TextStyle(fontSize: AppTextSize.body),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                      Navigator.pop(context);
+// ── Header row model ──────────────────────────────────────────────────────────
+
+class _HeaderRow {
+  final TextEditingController keyController;
+  final TextEditingController valueController;
+
+  _HeaderRow({String key = '', String value = ''})
+      : keyController = TextEditingController(text: key),
+        valueController = TextEditingController(text: value);
+}
+
+// ── Headers key-value editor ──────────────────────────────────────────────────
+
+class _HeadersEditor extends StatelessWidget {
+  const _HeadersEditor({
+    required this.rows,
+    required this.readOnly,
+    required this.onChanged,
+  });
+
+  final List<_HeaderRow> rows;
+  final bool readOnly;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(rows.length, (i) {
+          final row = rows[i];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 30,
+                    child: InterpolationTextField(
+                      controller: row.keyController,
+                      hintText: 'Header name',
+                      textSize: AppTextSize.small,
+                      readOnly: readOnly,
+                      onChanged: (_) => onChanged(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.s),
+                Expanded(
+                  child: SizedBox(
+                    height: 30,
+                    child: InterpolationTextField(
+                      controller: row.valueController,
+                      hintText: 'Value',
+                      textSize: AppTextSize.small,
+                      readOnly: readOnly,
+                      onChanged: (_) => onChanged(),
+                    ),
+                  ),
+                ),
+                if (!readOnly)
+                  InkWell(
+                    onTap: () {
+                      row.keyController.dispose();
+                      row.valueController.dispose();
+                      rows.removeAt(i);
+                      onChanged();
                     },
-                    style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                    child: Text('Save'),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xs),
+                      child: Icon(
+                        Icons.close,
+                        size: 12,
+                        color: AppColors.textD.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+        if (!readOnly)
+          InkWell(
+            onTap: () {
+              rows.add(_HeaderRow());
+              onChanged();
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xs,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: 13, color: AppColors.greenD),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Add',
+                    style: TextStyle(
+                      color: AppColors.greenD,
+                      fontSize: AppTextSize.small,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+      ],
+    );
+  }
+}
+
+// ── Helper sub-widget ──────────────────────────────────────────────────────────
+
+class _PaginationField extends StatelessWidget {
+  const _PaginationField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.readOnly,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textD,
+            fontSize: AppTextSize.small,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          hint,
+          style: TextStyle(
+            color: AppColors.textD.withValues(alpha: 0.5),
+            fontSize: AppTextSize.badge,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s),
+        SizedBox(
+          height: 30,
+          child: InterpolationTextField(
+            controller: controller,
+            hintText: 'Input here!',
+            readOnly: readOnly,
+            textSize: AppTextSize.body,
+          ),
+        ),
+      ],
     );
   }
 }

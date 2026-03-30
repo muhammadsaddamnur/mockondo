@@ -53,6 +53,24 @@ ThemeData getAppTheme(BuildContext context, ThemeModeType themeModeType) {
   );
 }
 
+/// Standardized spacing values used across the app.
+class AppSpacing {
+  static const double xs = 4;
+  static const double s = 6;
+  static const double m = 8;
+  static const double l = 12;
+  static const double xl = 16;
+  static const double xxl = 20;
+}
+
+/// Standardized text sizes used across the app.
+class AppTextSize {
+  static const double badge = 10;
+  static const double small = 11;
+  static const double body = 12;
+  static const double title = 14;
+}
+
 class AppColors extends ThemeExtension<AppColors> {
   static const Color backgroundD = Color(0xff1e1e1e);
   static const Color terminalD = Color.fromARGB(255, 21, 21, 21);
@@ -60,6 +78,25 @@ class AppColors extends ThemeExtension<AppColors> {
   static const Color greenD = Color(0xffabc32f);
   static const Color textD = Color.fromARGB(255, 152, 152, 160);
   static const Color red = Color.fromARGB(255, 255, 69, 32);
+  /// Background color for input fields and surface containers.
+  static const Color surfaceD = Color(0xff3e3e42);
+  /// Method badge colors — shared across the entire app.
+  static Color methodColor(String method) {
+    switch (method.toUpperCase()) {
+      case 'GET':
+        return AppColors.greenD;
+      case 'POST':
+        return const Color(0xff4CAF50);
+      case 'PUT':
+        return Colors.orangeAccent;
+      case 'PATCH':
+        return const Color(0xFF9C27B0);
+      case 'DELETE':
+        return Colors.redAccent;
+      default:
+        return AppColors.textD;
+    }
+  }
 
   final Color backgroundDarkness;
   final Color secondaryDarkness;

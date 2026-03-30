@@ -1,0 +1,1613 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:mockondo/core/colors.dart';
+import 'package:mockondo/core/curl_utils.dart';
+import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/custom_json_textfield.dart';
+import 'package:mockondo/core/widgets/interpolation_textfield.dart';
+import 'package:mockondo/features/http_client/data/models/http_client_model.dart';
+import 'package:mockondo/features/http_client/presentation/controllers/http_client_controller.dart';
+import 'package:mockondo/features/http_client/presentation/pages/ws_client_page.dart';
+import 'package:mockondo/features/http_client/presentation/widgets/key_value_table.dart';
+import 'package:re_editor/re_editor.dart';
+
+class HttpClientPage extends StatefulWidget {
+  const HttpClientPage({super.key});
+
+  @override
+  State<HttpClientPage> createState() => _HttpClientPageState();
+}
+
+class _HttpClientPageState extends State<HttpClientPage> {
+  // 0 = HTTP, 1 = WebSocket
+  int _clientTab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    // If WebSocket tab is active, delegate entirely to WsClientPage.
+    if (_clientTab == 1) {
+      return Column(
+        children: [
+          _ClientTabBar(
+            selected: _clientTab,
+            onTap: (i) => setState(() => _clientTab = i),
+          ),
+          const Expanded(child: WsClientPage()),
+        ],
+      );
+    }
+
+    final ctrl = Get.put(HttpClientController());
+    return Column(
+      children: [
+        // ── HTTP / WebSocket tab switcher ─────────────────────────────
+        _ClientTabBar(
+          selected: _clientTab,
+          onTap: (i) => setState(() => _clientTab = i),
+        ),
+        Expanded(
+          child: Row(
+      children: [
+        // ── Left sidebar: saved requests ──────────────────────────────
+        SizedBox(
+          width: 200,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.m),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Requests',
+                        style: TextStyle(
+                          color: AppColors.textD,
+                          fontSize: AppTextSize.body,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _showImportCurlDialog(context, ctrl),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: Icon(
+                          Icons.content_paste_rounded,
+                          size: 14,
+                          color: AppColors.textD.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    InkWell(
+                      onTap: () => _showAddGroupDialog(ctrl),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: Icon(
+                          Icons.create_new_folder_outlined,
+                          size: 14,
+                          color: AppColors.textD.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    InkWell(
+                      onTap: () => ctrl.addRequest(),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: Icon(
+                          Icons.add,
+                          size: 16,
+                          color: AppColors.textD,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+              Expanded(
+                child: _SidebarList(
+                  ctrl: ctrl,
+                  onRequestContextMenu: _showContextMenu,
+                  onGroupContextMenu: _showGroupContextMenu,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        VerticalDivider(width: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+
+        // ── Main: request editor + response ──────────────────────────
+        Expanded(
+          child: Obx(() {
+            if (ctrl.requests.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.send_outlined,
+                      size: 36,
+                      color: AppColors.textD.withValues(alpha: 0.2),
+                    ),
+                    const SizedBox(height: AppSpacing.l),
+                    Text(
+                      'Create a request to get started',
+                      style: TextStyle(
+                        color: AppColors.textD.withValues(alpha: 0.4),
+                        fontSize: AppTextSize.body,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.m),
+                    ElevatedButton(
+                      onPressed: ctrl.addRequest,
+                      style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
+                      child: const Text('New Request'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return _RequestEditor(ctrl: ctrl);
+          }),
+        ),
+      ],
+    ),        // Row
+          ),  // Expanded
+        ],
+      );      // Column
+  }
+
+  void _showImportCurlDialog(BuildContext context, HttpClientController ctrl) {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 540,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundD,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.l, AppSpacing.m, AppSpacing.l),
+                child: Row(
+                  children: [
+                    Icon(Icons.content_paste_rounded, size: 16, color: AppColors.textD),
+                    const SizedBox(width: AppSpacing.m),
+                    Expanded(
+                      child: Text(
+                        'Import cURL',
+                        style: TextStyle(
+                          color: AppColors.textD,
+                          fontSize: AppTextSize.title,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.pop(ctx),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.s),
+                        child: Icon(Icons.close, size: 14, color: AppColors.textD.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: TextField(
+                  controller: textCtrl,
+                  maxLines: 6,
+                  style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.small, fontFamily: 'monospace'),
+                  decoration: InputDecoration(
+                    hintText: "curl -X POST 'https://example.com/api' \\\n  -H 'Content-Type: application/json' \\\n  --data-raw '{\"key\": \"value\"}'",
+                    hintStyle: TextStyle(color: AppColors.textD.withValues(alpha: 0.3), fontSize: AppTextSize.small),
+                    filled: true,
+                    fillColor: AppColors.surfaceD.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(color: AppColors.secondaryD.withValues(alpha: 0.6)),
+                    ),
+                    contentPadding: const EdgeInsets.all(AppSpacing.m),
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.m),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6), fontSize: AppTextSize.body)),
+                    ),
+                    const SizedBox(width: AppSpacing.m),
+                    ElevatedButton(
+                      onPressed: () {
+                        final item = CurlUtils.parse(textCtrl.text.trim());
+                        if (item != null) {
+                          ctrl.requests.add(item);
+                          ctrl.selectedIndex.value = ctrl.requests.length - 1;
+                          ctrl.response.value = null;
+                          ctrl.errorMessage.value = null;
+                          ctrl.saveRequests();
+                        }
+                        Navigator.pop(ctx);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondaryD,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                      ),
+                      child: const Text('Import', style: TextStyle(color: Colors.white, fontSize: AppTextSize.body)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    HttpClientController ctrl,
+    int index,
+    Offset position,
+  ) {
+    final req = ctrl.requests[index];
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      color: AppColors.backgroundD,
+      items: [
+        PopupMenuItem(
+          onTap: () => ctrl.duplicateRequest(index),
+          child: Row(children: [
+            Icon(Icons.copy, size: 13, color: AppColors.textD),
+            const SizedBox(width: AppSpacing.m),
+            Text('Duplicate', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+          ]),
+        ),
+        if (ctrl.groups.isNotEmpty)
+          PopupMenuItem(
+            onTap: () => _showMoveToGroupDialog(ctrl, index),
+            child: Row(children: [
+              Icon(Icons.drive_file_move_outlined, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text(req.groupId != null ? 'Move / remove from group' : 'Move to group',
+                  style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+            ]),
+          ),
+        PopupMenuItem(
+          onTap: () => ctrl.deleteRequest(index),
+          child: Row(children: [
+            Icon(Icons.delete_outline, size: 13, color: AppColors.red),
+            const SizedBox(width: AppSpacing.m),
+            Text('Delete', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  void _showGroupContextMenu(
+    BuildContext context,
+    HttpClientController ctrl,
+    HttpRequestGroup group,
+    Offset position,
+  ) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      color: AppColors.backgroundD,
+      items: [
+        PopupMenuItem(
+          onTap: () => _showRenameGroupDialog(ctrl, group),
+          child: Row(children: [
+            Icon(Icons.edit_outlined, size: 13, color: AppColors.textD),
+            const SizedBox(width: AppSpacing.m),
+            Text('Rename', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+          ]),
+        ),
+        PopupMenuItem(
+          onTap: () => ctrl.deleteGroup(group.id),
+          child: Row(children: [
+            Icon(Icons.folder_delete_outlined, size: 13, color: AppColors.red),
+            const SizedBox(width: AppSpacing.m),
+            Text('Delete group', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
+          ]),
+        ),
+        PopupMenuItem(
+          onTap: () => ctrl.deleteGroup(group.id, deleteRequests: true),
+          child: Row(children: [
+            Icon(Icons.delete_sweep_outlined, size: 13, color: AppColors.red),
+            const SizedBox(width: AppSpacing.m),
+            Text('Delete group & requests', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
+          ]),
+        ),
+      ],
+    );
+  }
+
+  void _showAddGroupDialog(HttpClientController ctrl) {
+    final textCtrl = TextEditingController();
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 320,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundD,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.l, AppSpacing.m, AppSpacing.l),
+                child: Text('New Group',
+                    style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.title, fontWeight: FontWeight.bold)),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: TextField(
+                  controller: textCtrl,
+                  autofocus: true,
+                  style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+                  decoration: InputDecoration(
+                    hintText: 'Group name',
+                    hintStyle: TextStyle(color: AppColors.textD.withValues(alpha: 0.3)),
+                    filled: true,
+                    fillColor: AppColors.surfaceD.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.secondaryD.withValues(alpha: 0.6))),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+                  ),
+                  onSubmitted: (v) {
+                    if (v.trim().isNotEmpty) ctrl.addGroup(v.trim());
+                    Get.back();
+                  },
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.m),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: Get.back,
+                      child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6))),
+                    ),
+                    const SizedBox(width: AppSpacing.m),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (textCtrl.text.trim().isNotEmpty) ctrl.addGroup(textCtrl.text.trim());
+                        Get.back();
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondaryD, elevation: 0),
+                      child: const Text('Add', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRenameGroupDialog(HttpClientController ctrl, HttpRequestGroup group) {
+    final textCtrl = TextEditingController(text: group.name);
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 320,
+          decoration: BoxDecoration(color: AppColors.backgroundD, borderRadius: BorderRadius.circular(8)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.l, AppSpacing.m, AppSpacing.l),
+                child: Text('Rename Group',
+                    style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.title, fontWeight: FontWeight.bold)),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: TextField(
+                  controller: textCtrl,
+                  autofocus: true,
+                  style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.surfaceD.withValues(alpha: 0.5),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.textD.withValues(alpha: 0.15))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(5), borderSide: BorderSide(color: AppColors.secondaryD.withValues(alpha: 0.6))),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+                  ),
+                  onSubmitted: (v) {
+                    if (v.trim().isNotEmpty) ctrl.renameGroup(group.id, v.trim());
+                    Get.back();
+                  },
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.m),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: Get.back,
+                      child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6))),
+                    ),
+                    const SizedBox(width: AppSpacing.m),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (textCtrl.text.trim().isNotEmpty) ctrl.renameGroup(group.id, textCtrl.text.trim());
+                        Get.back();
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondaryD, elevation: 0),
+                      child: const Text('Save', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMoveToGroupDialog(HttpClientController ctrl, int reqIdx) {
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 280,
+          decoration: BoxDecoration(color: AppColors.backgroundD, borderRadius: BorderRadius.circular(8)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.l, AppSpacing.xl, AppSpacing.l),
+                child: Text('Move to group',
+                    style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.title, fontWeight: FontWeight.bold)),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              ...ctrl.groups.map((g) => InkWell(
+                onTap: () {
+                  ctrl.moveRequestToGroup(reqIdx, g.id);
+                  Get.back();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.m),
+                  child: Row(children: [
+                    Icon(Icons.folder_rounded, size: 13, color: AppColors.secondaryD.withValues(alpha: 0.8)),
+                    const SizedBox(width: AppSpacing.m),
+                    Text(g.name, style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+                  ]),
+                ),
+              )),
+              if (ctrl.requests[reqIdx].groupId != null) ...[
+                Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+                InkWell(
+                  onTap: () {
+                    ctrl.moveRequestToGroup(reqIdx, null);
+                    Get.back();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.m),
+                    child: Row(children: [
+                      Icon(Icons.folder_off_outlined, size: 13, color: AppColors.textD.withValues(alpha: 0.5)),
+                      const SizedBox(width: AppSpacing.m),
+                      Text('Remove from group', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6), fontSize: AppTextSize.body)),
+                    ]),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.s),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sidebar drag-drop list ────────────────────────────────────────────────────
+
+class _SidebarList extends StatefulWidget {
+  const _SidebarList({
+    required this.ctrl,
+    required this.onRequestContextMenu,
+    required this.onGroupContextMenu,
+  });
+
+  final HttpClientController ctrl;
+  final void Function(BuildContext, HttpClientController, int, Offset) onRequestContextMenu;
+  final void Function(BuildContext, HttpClientController, HttpRequestGroup, Offset) onGroupContextMenu;
+
+  @override
+  State<_SidebarList> createState() => _SidebarListState();
+}
+
+class _SidebarListState extends State<_SidebarList> {
+  String? _draggingId; // req id being dragged
+  int? _hoverInsert;   // flat insert-before index
+  String? _hoverGroup; // group id being hovered
+  bool _hoverUngroup = false;
+
+  void _startDrag(String id) => setState(() => _draggingId = id);
+
+  void _endDrag() => setState(() {
+    _draggingId = null;
+    _hoverInsert = null;
+    _hoverGroup = null;
+    _hoverUngroup = false;
+  });
+
+  void _dropAtInsert(String reqId, int insertIdx, List<Object> flat) {
+    final oldIdx = flat.indexWhere((e) => e is HttpRequestItem && e.id == reqId);
+    if (oldIdx != -1) widget.ctrl.reorderSidebar(oldIdx, insertIdx);
+    _endDrag();
+  }
+
+  void _dropOnGroup(String reqId, String groupId) {
+    final ctrl = widget.ctrl;
+    final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
+    if (reqIdx != -1 && ctrl.requests[reqIdx].groupId != groupId) {
+      ctrl.moveRequestToGroup(reqIdx, groupId);
+    }
+    _endDrag();
+  }
+
+  void _dropToUngroup(String reqId) {
+    final ctrl = widget.ctrl;
+    final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
+    if (reqIdx != -1) ctrl.moveRequestToGroup(reqIdx, null);
+    _endDrag();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
+    return Obx(() {
+      final flat = ctrl.buildVisibleFlatList();
+      if (flat.isEmpty) {
+        return Center(
+          child: Text(
+            'No requests yet.\nPress + to add one.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.4),
+              fontSize: AppTextSize.small,
+            ),
+          ),
+        );
+      }
+
+      // Check if the dragged request is inside a group (show ungroup zone)
+      final draggingGrouped = _draggingId != null &&
+          ctrl.requests.any((r) => r.id == _draggingId && r.groupId != null);
+
+      // Always return a Column so the widget tree stays stable during drag
+      return Column(
+        children: [
+          // 2*N+1 slots: insert_zone, entry, insert_zone, entry, ..., insert_zone
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: flat.length * 2 + 1,
+              itemBuilder: (context, i) {
+                if (i.isEven) return _insertZone(i ~/ 2, flat);
+                final entry = flat[i ~/ 2];
+                if (entry is HttpRequestGroup) return _groupEntry(entry, context);
+                return _reqEntry(entry as HttpRequestItem, flat, context);
+              },
+            ),
+          ),
+          _ungroupZone(visible: draggingGrouped),
+        ],
+      );
+    });
+  }
+
+  Widget _ungroupZone({bool visible = false}) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (_) {
+        setState(() { _hoverUngroup = true; _hoverInsert = null; _hoverGroup = null; });
+        return true;
+      },
+      onLeave: (_) => setState(() => _hoverUngroup = false),
+      onAcceptWithDetails: (d) => _dropToUngroup(d.data),
+      builder: (_, candidate, __) {
+        final active = _hoverUngroup || candidate.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: visible ? 44 : 0,
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: active
+                ? AppColors.secondaryD.withValues(alpha: 0.15)
+                : AppColors.backgroundD.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(6),
+            border: visible
+                ? Border.all(
+                    color: active
+                        ? AppColors.secondaryD.withValues(alpha: 0.6)
+                        : AppColors.textD.withValues(alpha: 0.2),
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  )
+                : null,
+          ),
+          margin: visible ? const EdgeInsets.all(AppSpacing.s) : EdgeInsets.zero,
+          child: Center(
+            child: Text(
+              'Drop to ungroup',
+              style: TextStyle(
+                fontSize: AppTextSize.small,
+                color: active
+                    ? AppColors.secondaryD
+                    : AppColors.textD.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _insertZone(int insertIdx, List<Object> flat) {
+    if (_draggingId == null) return const SizedBox(height: 2);
+    final active = _hoverInsert == insertIdx;
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (_) {
+        setState(() { _hoverInsert = insertIdx; _hoverGroup = null; });
+        return true;
+      },
+      onLeave: (_) { if (_hoverInsert == insertIdx) setState(() => _hoverInsert = null); },
+      onAcceptWithDetails: (d) => _dropAtInsert(d.data, insertIdx, flat),
+      builder: (_, candidate, __) {
+        final isActive = active || candidate.isNotEmpty;
+        return SizedBox(
+          height: 10,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 80),
+              height: isActive ? 2 : 0,
+              color: isActive ? AppColors.secondaryD : Colors.transparent,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _groupEntry(HttpRequestGroup group, BuildContext context) {
+    final hovering = _hoverGroup == group.id;
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (_) {
+        setState(() { _hoverGroup = group.id; _hoverInsert = null; });
+        return true;
+      },
+      onLeave: (_) { if (_hoverGroup == group.id) setState(() => _hoverGroup = null); },
+      onAcceptWithDetails: (d) => _dropOnGroup(d.data, group.id),
+      builder: (_, candidate, __) => _GroupRow(
+        group: group,
+        ctrl: widget.ctrl,
+        isDropTarget: hovering || candidate.isNotEmpty,
+        onContextMenu: (pos) => widget.onGroupContextMenu(context, widget.ctrl, group, pos),
+      ),
+    );
+  }
+
+  Widget _reqEntry(HttpRequestItem req, List<Object> flat, BuildContext context) {
+    final reqIdx = widget.ctrl.requests.indexOf(req);
+    final row = _ReqRow(
+      req: req,
+      reqIdx: reqIdx,
+      ctrl: widget.ctrl,
+      onContextMenu: (pos) => widget.onRequestContextMenu(context, widget.ctrl, reqIdx, pos),
+    );
+    return Draggable<String>(
+      data: req.id,
+      onDragStarted: () => _startDrag(req.id),
+      onDragEnd: (_) => _endDrag(),
+      onDraggableCanceled: (_, __) => _endDrag(),
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: 200,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.backgroundD,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
+            ),
+            child: row,
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: row),
+      child: row,
+    );
+  }
+}
+
+// ── Sidebar widgets ───────────────────────────────────────────────────────────
+
+class _GroupRow extends StatelessWidget {
+  const _GroupRow({
+    required this.group,
+    required this.ctrl,
+    required this.onContextMenu,
+    this.isDropTarget = false,
+  });
+
+  final HttpRequestGroup group;
+  final HttpClientController ctrl;
+  final void Function(Offset) onContextMenu;
+  final bool isDropTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onSecondaryTapDown: (d) => onContextMenu(d.globalPosition),
+      child: InkWell(
+        onTap: () => ctrl.toggleGroup(group.id),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          decoration: BoxDecoration(
+            color: isDropTarget
+                ? AppColors.secondaryD.withValues(alpha: 0.15)
+                : Colors.transparent,
+            border: isDropTarget
+                ? Border.all(color: AppColors.secondaryD.withValues(alpha: 0.5))
+                : null,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          margin: isDropTarget ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1) : EdgeInsets.zero,
+          padding: EdgeInsets.symmetric(horizontal: isDropTarget ? 6 : 10, vertical: 6),
+          child: Row(
+            children: [
+              Icon(
+                isDropTarget || group.isExpanded
+                    ? Icons.folder_open_rounded
+                    : Icons.folder_rounded,
+                size: 13,
+                color: isDropTarget
+                    ? AppColors.secondaryD
+                    : AppColors.secondaryD.withValues(alpha: 0.8),
+              ),
+              const SizedBox(width: AppSpacing.s),
+              Expanded(
+                child: Text(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDropTarget ? AppColors.secondaryD : AppColors.textD,
+                    fontSize: AppTextSize.small,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (!isDropTarget)
+                Icon(
+                  group.isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 14,
+                  color: AppColors.textD.withValues(alpha: 0.4),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReqRow extends StatelessWidget {
+  const _ReqRow({
+    required this.req,
+    required this.reqIdx,
+    required this.ctrl,
+    required this.onContextMenu,
+  });
+
+  final HttpRequestItem req;
+  final int reqIdx;
+  final HttpClientController ctrl;
+  final void Function(Offset) onContextMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isSelected = ctrl.selectedIndex.value == reqIdx;
+      return GestureDetector(
+        onSecondaryTapDown: (d) => onContextMenu(d.globalPosition),
+        child: InkWell(
+          onTap: () => ctrl.selectRequest(reqIdx),
+          child: Container(
+            color: isSelected
+                ? AppColors.secondaryD.withValues(alpha: 0.2)
+                : Colors.transparent,
+            padding: EdgeInsets.only(
+              left: req.groupId != null ? 20 : 10,
+              right: 10,
+              top: 7,
+              bottom: 7,
+            ),
+            child: Row(
+              children: [
+                _MethodBadge(method: req.method),
+                const SizedBox(width: AppSpacing.s),
+                Expanded(
+                  child: Text(
+                    req.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.textD,
+                      fontSize: AppTextSize.small,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+// ── Request Editor ────────────────────────────────────────────────────────────
+
+class _RequestEditor extends StatefulWidget {
+  const _RequestEditor({required this.ctrl});
+  final HttpClientController ctrl;
+
+  @override
+  State<_RequestEditor> createState() => _RequestEditorState();
+}
+
+class _RequestEditorState extends State<_RequestEditor> {
+  int _reqTab = 0; // 0=params, 1=headers, 2=body
+  int _resTab = 0; // 0=body, 1=headers
+
+  HttpClientController get ctrl => widget.ctrl;
+
+  late TextEditingController _urlCtrl;
+  late TextEditingController _nameCtrl;
+  late CodeLineEditingController _bodyCtrl;
+
+  int? _lastIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlCtrl = TextEditingController();
+    _nameCtrl = TextEditingController();
+    _bodyCtrl = CodeLineEditingController();
+    _syncControllers();
+  }
+
+  @override
+  void dispose() {
+    _urlCtrl.dispose();
+    _nameCtrl.dispose();
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  void _syncControllers() {
+    final req = ctrl.selected;
+    if (req == null) return;
+    if (_lastIndex != ctrl.selectedIndex.value) {
+      _lastIndex = ctrl.selectedIndex.value;
+      _urlCtrl.text = req.url;
+      _nameCtrl.text = req.name;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _bodyCtrl.text = req.body;
+      });
+    }
+  }
+
+  HttpRequestItem get _req => ctrl.selected!;
+
+  void _update(HttpRequestItem updated) => ctrl.updateSelected(updated);
+
+  void _onUrlChanged(String v) {
+    if (v.trimLeft().toLowerCase().startsWith('curl')) {
+      final parsed = CurlUtils.parse(v.trim());
+      if (parsed != null) {
+        final withId = HttpRequestItem(
+          id: _req.id,
+          name: parsed.name != 'Imported Request' ? parsed.name : _req.name,
+          method: parsed.method,
+          url: parsed.url,
+          headers: parsed.headers,
+          params: parsed.params,
+          body: parsed.body,
+          bodyType: parsed.bodyType,
+          formData: parsed.formData,
+        );
+        // Force _syncControllers to re-sync all controllers on next rebuild
+        _lastIndex = null;
+        ctrl.updateSelected(withId);
+        return;
+      }
+    }
+    _update(_req.copyWith(url: v));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      ctrl.selectedIndex.value; // reactive
+      _syncControllers();
+      final req = ctrl.selected;
+      if (req == null) return const SizedBox();
+
+      return Column(
+        children: [
+          // ── Request name bar ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.l, AppSpacing.m, AppSpacing.l, AppSpacing.xs),
+            child: SizedBox(
+              height: 28,
+              child: InterpolationTextField(
+                controller: _nameCtrl,
+                hintText: 'Request name',
+                textSize: 12,
+                onChanged: (v) => _update(_req.copyWith(name: v)),
+              ),
+            ),
+          ),
+
+          // ── URL bar ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.xs),
+            child: SizedBox(
+              height: 36,
+              child: Row(
+                children: [
+                  // Method selector
+                  _MethodSelector(
+                    value: req.method,
+                    onChanged: (v) => _update(_req.copyWith(method: v)),
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+                  // URL
+                  Expanded(
+                    child: InterpolationTextField(
+                      controller: _urlCtrl,
+                      hintText: 'https://example.com/api/endpoint',
+                      textSize: 12,
+                      onChanged: _onUrlChanged,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+                  // Copy cURL button
+                  InkWell(
+                    onTap: () {
+                      final r = ctrl.selected;
+                      if (r == null) return;
+                      var urlStr = r.url.trim();
+                      final enabledParams = r.params.where((p) => p.enabled && p.key.isNotEmpty).toList();
+                      if (enabledParams.isNotEmpty) {
+                        final uri = Uri.tryParse(urlStr);
+                        if (uri != null) {
+                          final q = Map<String, String>.from(uri.queryParameters);
+                          for (final p in enabledParams) { q[p.key] = p.value; }
+                          urlStr = uri.replace(queryParameters: q).toString();
+                        }
+                      }
+                      final headers = <String, String>{
+                        for (final h in r.headers)
+                          if (h.enabled && h.key.isNotEmpty) h.key: h.value,
+                      };
+                      final curl = CurlUtils.generate(
+                        method: r.method,
+                        url: urlStr,
+                        headers: headers,
+                        body: r.body.isNotEmpty ? r.body : null,
+                      );
+                      Clipboard.setData(ClipboardData(text: curl));
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.s),
+                      child: Icon(
+                        Icons.content_copy_rounded,
+                        size: 14,
+                        color: AppColors.textD.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  // Send button
+                  Obx(() => SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: ctrl.isLoading.value ? null : ctrl.sendRequest,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.secondaryD,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                      ),
+                      child: ctrl.isLoading.value
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Send',
+                              style: TextStyle(color: Colors.white, fontSize: AppTextSize.body),
+                            ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+
+          Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+
+          // ── Split: request config top / response bottom ────────────
+          Expanded(
+            child: Column(
+              children: [
+                // Request tabs (params/headers/body)
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    children: [
+                      AppTabBar(
+                        tabs: [
+                          'Params (${req.params.where((p) => p.enabled && p.key.isNotEmpty).length})',
+                          'Headers (${req.headers.where((h) => h.enabled && h.key.isNotEmpty).length})',
+                          'Body',
+                        ],
+                        selected: _reqTab,
+                        onTap: (i) => setState(() => _reqTab = i),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.l),
+                          child: _reqTab == 0
+                              ? SingleChildScrollView(
+                                  child: KeyValueTable(
+                                    pairs: req.params,
+                                    keyHint: 'Parameter',
+                                    enableInterpolation: true,
+                                    onChanged: (v) => _update(_req.copyWith(params: v)),
+                                  ),
+                                )
+                              : _reqTab == 1
+                                  ? SingleChildScrollView(
+                                      child: KeyValueTable(
+                                        pairs: req.headers,
+                                        keyHint: 'Header',
+                                        enableInterpolation: true,
+                                        onChanged: (v) => _update(_req.copyWith(headers: v)),
+                                      ),
+                                    )
+                                  : _BodyEditor(
+                                      bodyType: req.bodyType,
+                                      bodyCtrl: _bodyCtrl,
+                                      formData: req.formData,
+                                      onBodyTypeChanged: (t) => _update(_req.copyWith(bodyType: t)),
+                                      onBodyChanged: (v) => _update(_req.copyWith(body: v)),
+                                      onFormDataChanged: (v) => _update(_req.copyWith(formData: v)),
+                                    ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+
+                // Response section
+                Expanded(
+                  flex: 5,
+                  child: Obx(() => _ResponsePanel(
+                    response: ctrl.response.value,
+                    error: ctrl.errorMessage.value,
+                    isLoading: ctrl.isLoading.value,
+                    selectedTab: _resTab,
+                    onTabChanged: (i) => setState(() => _resTab = i),
+                  )),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+// ── Response Panel ────────────────────────────────────────────────────────────
+
+class _ResponsePanel extends StatefulWidget {
+  const _ResponsePanel({
+    required this.response,
+    required this.error,
+    required this.isLoading,
+    required this.selectedTab,
+    required this.onTabChanged,
+  });
+
+  final HttpResponseResult? response;
+  final String? error;
+  final bool isLoading;
+  final int selectedTab;
+  final ValueChanged<int> onTabChanged;
+
+  @override
+  State<_ResponsePanel> createState() => _ResponsePanelState();
+}
+
+class _ResponsePanelState extends State<_ResponsePanel> {
+  final _bodyCtrl = CodeLineEditingController();
+  String? _lastBody;
+
+  @override
+  void dispose() {
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final response = widget.response;
+    final error = widget.error;
+    final isLoading = widget.isLoading;
+
+    // Sync body controller only when response body changes
+    if (response != null && response.prettyBody != _lastBody) {
+      _lastBody = response.prettyBody;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _bodyCtrl.text = response.prettyBody;
+      });
+    }
+
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, color: AppColors.red, size: 28),
+              const SizedBox(height: AppSpacing.m),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.red, fontSize: AppTextSize.body),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (response == null) {
+      return Center(
+        child: Text(
+          'Send a request to see the response',
+          style: TextStyle(
+            color: AppColors.textD.withValues(alpha: 0.3),
+            fontSize: AppTextSize.body,
+          ),
+        ),
+      );
+    }
+
+    final res = response;
+    return Column(
+      children: [
+        // Status bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
+          child: Row(
+            children: [
+              Text(
+                'Response',
+                style: TextStyle(
+                  color: AppColors.textD,
+                  fontSize: AppTextSize.body,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              _StatusBadge(statusCode: res.statusCode),
+              const SizedBox(width: AppSpacing.l),
+              _InfoChip(
+                icon: Icons.timer_outlined,
+                label: '${res.durationMs}ms',
+              ),
+              const SizedBox(width: AppSpacing.s),
+              _InfoChip(
+                icon: Icons.data_usage,
+                label: '${(res.body.length / 1024).toStringAsFixed(1)} KB',
+              ),
+            ],
+          ),
+        ),
+
+        AppTabBar(
+          tabs: ['Body', 'Headers (${res.headers.length})'],
+          selected: widget.selectedTab,
+          onTap: widget.onTabChanged,
+        ),
+
+        Expanded(
+          child: widget.selectedTab == 0
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.m),
+                  child: CustomJsonTextField(
+                    hintText: '',
+                    controller: _bodyCtrl,
+                    onChanged: (_) {},
+                    readOnly: true,
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(AppSpacing.l),
+                  children: res.headers.entries.map((e) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 180,
+                            child: Text(
+                              e.key,
+                              style: TextStyle(
+                                color: AppColors.secondaryD,
+                                fontSize: AppTextSize.small,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: SelectableText(
+                              e.value,
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: AppTextSize.small,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Body Editor ───────────────────────────────────────────────────────────────
+
+class _BodyEditor extends StatelessWidget {
+  const _BodyEditor({
+    required this.bodyType,
+    required this.bodyCtrl,
+    required this.formData,
+    required this.onBodyTypeChanged,
+    required this.onBodyChanged,
+    required this.onFormDataChanged,
+  });
+
+  final RequestBodyType bodyType;
+  final CodeLineEditingController bodyCtrl;
+  final List<KeyValuePair> formData;
+  final ValueChanged<RequestBodyType> onBodyTypeChanged;
+  final ValueChanged<String> onBodyChanged;
+  final ValueChanged<List<KeyValuePair>> onFormDataChanged;
+
+  static const _labels = {
+    RequestBodyType.none: 'None',
+    RequestBodyType.json: 'JSON',
+    RequestBodyType.text: 'Text',
+    RequestBodyType.formData: 'Form Data',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Type selector ──────────────────────────────────────────
+        Row(
+          children: RequestBodyType.values.map((t) {
+            return Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.l),
+              child: InkWell(
+                onTap: () => onBodyTypeChanged(t),
+                child: Row(
+                  children: [
+                    Icon(
+                      t == bodyType
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      size: 14,
+                      color: t == bodyType
+                          ? AppColors.secondaryD
+                          : AppColors.textD.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      _labels[t]!,
+                      style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.small),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppSpacing.s),
+
+        // ── Body content ───────────────────────────────────────────
+        if (bodyType == RequestBodyType.formData)
+          Expanded(
+            child: SingleChildScrollView(
+              child: KeyValueTable(
+                pairs: formData,
+                keyHint: 'Field',
+                valueHint: 'Value',
+                enableInterpolation: true,
+                onChanged: onFormDataChanged,
+              ),
+            ),
+          )
+        else if (bodyType != RequestBodyType.none)
+          Expanded(
+            child: CustomJsonTextField(
+              hintText: bodyType == RequestBodyType.json
+                  ? '{ "key": "value" }'
+                  : 'Request body...',
+              controller: bodyCtrl,
+              onChanged: onBodyChanged,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+class _MethodSelector extends StatelessWidget {
+  const _MethodSelector({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceD.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          icon: const Icon(Icons.keyboard_arrow_down, size: 14, color: AppColors.textD),
+          dropdownColor: Theme.of(context).canvasColor,
+          style: TextStyle(
+            color: AppColors.methodColor(value),
+            fontSize: AppTextSize.body,
+            fontWeight: FontWeight.bold,
+          ),
+          items: _methods
+              .map(
+                (m) => DropdownMenuItem(
+                  value: m,
+                  child: Text(
+                    m,
+                    style: TextStyle(
+                      color: AppColors.methodColor(m),
+                      fontSize: AppTextSize.body,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (v) => v != null ? onChanged(v) : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _MethodBadge extends StatelessWidget {
+  const _MethodBadge({required this.method});
+  final String method;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppColors.methodColor(method);
+    return Text(
+      method,
+      style: TextStyle(
+        color: color,
+        fontSize: AppTextSize.badge,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.statusCode});
+  final int statusCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = statusCode >= 200 && statusCode < 300
+        ? AppColors.greenD
+        : statusCode >= 400 && statusCode < 500
+            ? Colors.orangeAccent
+            : statusCode >= 500
+                ? AppColors.red
+                : AppColors.textD;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        '$statusCode',
+        style: TextStyle(
+          color: color,
+          fontSize: AppTextSize.small,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: AppColors.textD.withValues(alpha: 0.5)),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textD.withValues(alpha: 0.5),
+            fontSize: AppTextSize.small,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Client tab bar (HTTP | WebSocket) ─────────────────────────────────────────
+
+class _ClientTabBar extends StatelessWidget {
+  const _ClientTabBar({required this.selected, required this.onTap});
+
+  final int selected;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.textD.withValues(alpha: 0.12)),
+        ),
+      ),
+      child: Row(
+        children: [
+          _chip(0, 'HTTP', false),
+          _chip(1, 'WebSocket', true),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(int index, String label, bool wsStyle) {
+    final isSelected = selected == index;
+    final color = wsStyle ? const Color(0xFF4DFFD6) : AppColors.secondaryD;
+    return InkWell(
+      onTap: () => onTap(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? color : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? color
+                : AppColors.textD.withValues(alpha: 0.45),
+            fontSize: AppTextSize.small,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
