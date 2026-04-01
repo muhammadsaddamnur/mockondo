@@ -35,6 +35,69 @@ class KeyValuePair {
   );
 }
 
+// ── RequestFormField ─────────────────────────────────────────────────────────────────
+
+/// Type of a form-data field.
+enum RequestFormFieldType { text, file }
+
+/// A single entry in a multipart/form-data request body.
+///
+/// When [type] is [RequestFormFieldType.file], [filePath] holds the absolute path to
+/// the selected file and [value] is used as the display filename fallback.
+/// When [type] is [RequestFormFieldType.text], [value] is the plain text value.
+class RequestFormField {
+  String key;
+  String value;
+  bool enabled;
+  RequestFormFieldType type;
+  String? filePath;
+
+  RequestFormField({
+    this.key = '',
+    this.value = '',
+    this.enabled = true,
+    this.type = RequestFormFieldType.text,
+    this.filePath,
+  });
+
+  String get displayFileName =>
+      filePath != null ? filePath!.split('/').last : value;
+
+  RequestFormField copyWith({
+    String? key,
+    String? value,
+    bool? enabled,
+    RequestFormFieldType? type,
+    String? filePath,
+  }) =>
+      RequestFormField(
+        key: key ?? this.key,
+        value: value ?? this.value,
+        enabled: enabled ?? this.enabled,
+        type: type ?? this.type,
+        filePath: filePath ?? this.filePath,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'value': value,
+    'enabled': enabled,
+    'type': type.name,
+    'file_path': filePath,
+  };
+
+  factory RequestFormField.fromJson(Map<String, dynamic> json) => RequestFormField(
+    key: json['key'] as String? ?? '',
+    value: json['value'] as String? ?? '',
+    enabled: json['enabled'] as bool? ?? true,
+    type: RequestFormFieldType.values.firstWhere(
+      (t) => t.name == (json['type'] as String? ?? 'text'),
+      orElse: () => RequestFormFieldType.text,
+    ),
+    filePath: json['file_path'] as String?,
+  );
+}
+
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
 /// How the request body is encoded when sending.
@@ -50,6 +113,10 @@ enum RequestBodyType {
 
   /// Body is URL-encoded (`application/x-www-form-urlencoded`).
   formData,
+
+  /// Body is raw binary file bytes. The [HttpRequestItem.body] field holds
+  /// the absolute file path chosen by the user.
+  binary,
 }
 
 // ── HttpRequestItem ───────────────────────────────────────────────────────────
@@ -84,8 +151,9 @@ class HttpRequestItem {
   /// Determines how [body] / [formData] is encoded.
   RequestBodyType bodyType;
 
-  /// Key-value fields used when [bodyType] is [RequestBodyType.formData].
-  List<KeyValuePair> formData;
+  /// Fields used when [bodyType] is [RequestBodyType.formData].
+  /// Each field can be text or a file (multipart/form-data).
+  List<RequestFormField> formData;
 
   /// ID of the [HttpRequestGroup] this request belongs to, or `null` if
   /// the request is ungrouped.
@@ -100,7 +168,7 @@ class HttpRequestItem {
     List<KeyValuePair>? params,
     this.body = '',
     this.bodyType = RequestBodyType.json,
-    List<KeyValuePair>? formData,
+    List<RequestFormField>? formData,
     this.groupId,
   })  : headers = headers ?? [],
         params = params ?? [],
@@ -116,7 +184,7 @@ class HttpRequestItem {
     List<KeyValuePair>? params,
     String? body,
     RequestBodyType? bodyType,
-    List<KeyValuePair>? formData,
+    List<RequestFormField>? formData,
   }) => HttpRequestItem(
     id: id,
     name: name ?? this.name,
@@ -163,7 +231,7 @@ class HttpRequestItem {
           orElse: () => RequestBodyType.json,
         ),
         formData: (json['form_data'] as List<dynamic>?)
-                ?.map((e) => KeyValuePair.fromJson(e as Map<String, dynamic>))
+                ?.map((e) => RequestFormField.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
         groupId: json['group_id'] as String?,

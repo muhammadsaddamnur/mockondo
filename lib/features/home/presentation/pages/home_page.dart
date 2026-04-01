@@ -5,15 +5,18 @@ import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/routing_core.dart';
+import 'package:mockondo/core/schema_service.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
+import 'package:mockondo/core/widgets/chip_start.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:mockondo/features/custom_data/pages/custom_data_page.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
-import 'package:mockondo/features/home/presentation/widgets/custom_data_dialog_widget.dart';
 import 'package:mockondo/features/home/presentation/widgets/endpoint_widget.dart';
 import 'package:mockondo/features/home/presentation/widgets/ws_endpoint_widget.dart';
-import 'package:mockondo/core/export_import_service.dart';
 import 'package:mockondo/features/home/presentation/widgets/terminal_widget.dart';
 import 'package:mockondo/features/http_client/presentation/pages/http_client_page.dart';
 import 'package:mockondo/features/json_to_code/presentation/pages/json_to_code_page.dart';
+import 'package:mockondo/features/mock_s3/presentation/pages/mock_s3_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,7 +25,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _AppMode { mock, httpClient, jsonToCode }
+enum _AppMode { mock, httpClient, jsonToCode, mockS3, customData }
 
 class _HomePageState extends State<HomePage> {
   final homeController = Get.put(HomeController());
@@ -42,7 +45,10 @@ class _HomePageState extends State<HomePage> {
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
-        position.dx, position.dy, position.dx, position.dy,
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
       ),
       color: AppColors.backgroundD,
       items: [
@@ -55,52 +61,149 @@ class _HomePageState extends State<HomePage> {
               if (!mounted) return;
               showDialog(
                 context: context,
-                builder: (_) => AlertDialog(
-                  backgroundColor: colors(context).backgroundDarkness,
-                  title: Text(
-                    'Rename Project',
-                    style: TextStyle(
-                      color: AppColors.textD,
-                      fontSize: AppTextSize.title,
-                    ),
-                  ),
-                  content: CustomTextField(
-                    controller: ctrl,
-                    hintText: 'Project Name',
-                    onChanged: (v) {
-                      homeController.mockModels[index]?.name = v;
-                      setState(() {});
-                    },
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Close',
-                        style: TextStyle(color: AppColors.textD),
+                builder:
+                    (_) => AlertDialog(
+                      backgroundColor: colors(context).backgroundDarkness,
+                      title: Text(
+                        'Rename Project',
+                        style: TextStyle(
+                          color: AppColors.textD,
+                          fontSize: AppTextSize.title,
+                        ),
                       ),
+                      content: CustomTextField(
+                        controller: ctrl,
+                        hintText: 'Project Name',
+                        onChanged: (v) {
+                          homeController.mockModels[index]?.name = v;
+                          setState(() {});
+                        },
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Close',
+                            style: TextStyle(color: AppColors.textD),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               );
             });
           },
-          child: Row(children: [
-            Icon(Icons.edit_outlined, size: 13, color: AppColors.textD),
-            const SizedBox(width: AppSpacing.m),
-            Text('Rename', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
-          ]),
+          child: Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Rename',
+                style: TextStyle(
+                  color: AppColors.textD,
+                  fontSize: AppTextSize.body,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            final project = homeController.mockModels[index];
+            if (project == null) return;
+            SchemaService.exportOpenApi(context, project);
+          },
+          child: Row(
+            children: [
+              Icon(Icons.upload_outlined, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Export OpenAPI (HTTP)',
+                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            SchemaService.importOpenApi(context).then((endpoints) {
+              if (!mounted || endpoints == null || endpoints.isEmpty) return;
+              final project = homeController.mockModels[index];
+              if (project == null) return;
+              project.mockModels.addAll(endpoints);
+              homeController.mockModels[index] = project;
+              homeController.save();
+              setState(() {});
+            });
+          },
+          child: Row(
+            children: [
+              Icon(Icons.download_outlined, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Import OpenAPI (HTTP)',
+                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            final project = homeController.mockModels[index];
+            if (project == null) return;
+            SchemaService.exportAsyncApi(context, project);
+          },
+          child: Row(
+            children: [
+              Icon(Icons.upload_outlined, size: 13, color: const Color(0xFF4DFFD6)),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Export AsyncAPI (WS)',
+                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            SchemaService.importAsyncApi(context).then((wsModels) {
+              if (!mounted || wsModels == null || wsModels.isEmpty) return;
+              final project = homeController.mockModels[index];
+              if (project == null) return;
+              project.wsMockModels.addAll(wsModels);
+              homeController.mockModels[index] = project;
+              homeController.save();
+              setState(() {});
+            });
+          },
+          child: Row(
+            children: [
+              Icon(Icons.download_outlined, size: 13, color: const Color(0xFF4DFFD6)),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Import AsyncAPI (WS)',
+                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+              ),
+            ],
+          ),
         ),
         PopupMenuItem(
           onTap: () {
             homeController.removeModel(index);
             setState(() {});
           },
-          child: Row(children: [
-            Icon(Icons.delete_outline, size: 13, color: AppColors.red),
-            const SizedBox(width: AppSpacing.m),
-            Text('Delete', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
-          ]),
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 13, color: AppColors.red),
+              const SizedBox(width: AppSpacing.m),
+              Text(
+                'Delete',
+                style: TextStyle(
+                  color: AppColors.red,
+                  fontSize: AppTextSize.body,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -134,17 +237,31 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 _ActivityIcon(
+                  icon: Icons.drive_folder_upload_outlined,
+                  label: 'Mock Storage',
+                  selected: _mode == _AppMode.mockS3,
+                  onTap: () => setState(() => _mode = _AppMode.mockS3),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _ActivityIcon(
                   icon: Icons.send_outlined,
-                  label: 'HTTP Client',
+                  label: 'HTTP/WS Client',
                   selected: _mode == _AppMode.httpClient,
                   onTap: () => setState(() => _mode = _AppMode.httpClient),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 _ActivityIcon(
-                  icon: Icons.transform_rounded,
+                  icon: Icons.code,
                   label: 'JSON to Code',
                   selected: _mode == _AppMode.jsonToCode,
                   onTap: () => setState(() => _mode = _AppMode.jsonToCode),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _ActivityIcon(
+                  icon: Icons.data_object,
+                  label: 'Custom Data',
+                  selected: _mode == _AppMode.customData,
+                  onTap: () => setState(() => _mode = _AppMode.customData),
                 ),
               ],
             ),
@@ -155,200 +272,313 @@ class _HomePageState extends State<HomePage> {
             Expanded(child: HttpClientPage()),
           ] else if (_mode == _AppMode.jsonToCode) ...[
             const Expanded(child: JsonToCodePage()),
+          ] else if (_mode == _AppMode.mockS3) ...[
+            const Expanded(child: MockS3Page()),
+          ] else if (_mode == _AppMode.customData) ...[
+            Expanded(child: CustomDataPage()),
           ] else ...[
-          // ── Mock sidebar ─────────────────────────────────────────
-          Container(
-            width: 200,
-            decoration: BoxDecoration(
-              color: AppColors.backgroundD,
-              border: Border(
-                right: BorderSide(
-                  color: AppColors.textD.withValues(alpha: 0.1),
+            // ── Mock sidebar ─────────────────────────────────────────
+            Container(
+              width: 200,
+              decoration: BoxDecoration(
+                color: AppColors.backgroundD,
+                border: Border(
+                  right: BorderSide(
+                    color: AppColors.textD.withValues(alpha: 0.1),
+                  ),
                 ),
               ),
-            ),
-            child: Obx(() {
-              return Column(
-                children: [
-                  // Sidebar header: Custom Data + ⋮ menu
-                  InkWell(
-                    onTap: () => showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (_) => Dialog(
-                        backgroundColor: Colors.transparent,
-                        child: CustomDataDialogWidget(),
-                      ),
-                    ),
-                    child: Container(
+              child: Obx(() {
+                return Column(
+                  children: [
+                    // Header
+                    Container(
                       height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.m,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.textD.withValues(alpha: 0.08),
+                          ),
+                        ),
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.data_object, size: 14, color: AppColors.secondaryD),
+                          Icon(Icons.dns_outlined, size: 14, color: AppColors.secondaryD),
                           const SizedBox(width: AppSpacing.s),
                           Text(
-                            'Custom Data',
+                            'Mock Server',
                             style: TextStyle(
-                              color: AppColors.secondaryD,
-                              fontSize: AppTextSize.body,
+                              color: AppColors.textD,
+                              fontSize: AppTextSize.title,
                               fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          Tooltip(
+                            message: 'MOCK Server',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(4),
+                              onTap: homeController.createModel,
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xs),
+                                child: Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: AppColors.greenD,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.1)),
-                  const SizedBox(height: AppSpacing.xs),
+                    Divider(
+                      height: 1,
+                      color: AppColors.textD.withValues(alpha: 0.1),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
 
-                  // Project list
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                      itemCount: homeController.mockModels.length,
-                      itemBuilder: (context, index) {
-                        final mock = homeController.mockModels[index];
-                        final isSelected =
-                            homeController.selectedMockModelIndex.value == index;
-                        final isRunning = mock?.server?.isRunning ?? false;
-                        return GestureDetector(
-                          onSecondaryTapDown: (d) =>
-                              _showProjectMenu(context, index, d.globalPosition),
-                          child: InkWell(
-                            onTap: () {
-                              homeController.changeProject(index);
-                              change();
-                            },
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              height: 52,
-                              margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.m,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                color: isSelected
-                                    ? AppColors.secondaryD.withValues(alpha: 0.18)
-                                    : Colors.transparent,
-                                border: isSelected
-                                    ? Border.all(
-                                        color: AppColors.secondaryD
-                                            .withValues(alpha: 0.3),
-                                      )
-                                    : null,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Running indicator dot
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    margin: const EdgeInsets.only(right: AppSpacing.s),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: isRunning
-                                          ? AppColors.greenD
-                                          : AppColors.textD.withValues(alpha: 0.25),
+                    // Project list
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                        ),
+                        itemCount: homeController.mockModels.length,
+                        itemBuilder: (context, index) {
+                          final mock = homeController.mockModels[index];
+                          final isSelected =
+                              homeController.selectedMockModelIndex.value ==
+                              index;
+                          final isRunning = mock?.server?.isRunning ?? false;
+                          return GestureDetector(
+                            onSecondaryTapDown:
+                                (d) => _showProjectMenu(
+                                  context,
+                                  index,
+                                  d.globalPosition,
+                                ),
+                            child: InkWell(
+                              onTap: () {
+                                homeController.changeProject(index);
+                                change();
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                height: 52,
+                                margin: const EdgeInsets.only(
+                                  bottom: AppSpacing.xs,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.m,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(6),
+                                  color:
+                                      isSelected
+                                          ? AppColors.secondaryD.withValues(
+                                            alpha: 0.18,
+                                          )
+                                          : Colors.transparent,
+                                  border:
+                                      isSelected
+                                          ? Border.all(
+                                            color: AppColors.secondaryD
+                                                .withValues(alpha: 0.3),
+                                          )
+                                          : null,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Running indicator dot
+                                    Container(
+                                      width: 7,
+                                      height: 7,
+                                      margin: const EdgeInsets.only(
+                                        right: AppSpacing.s,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color:
+                                            isRunning
+                                                ? AppColors.greenD
+                                                : AppColors.textD.withValues(
+                                                  alpha: 0.25,
+                                                ),
+                                      ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          mock?.name ?? 'Unnamed',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: AppColors.textD,
-                                            fontSize: AppTextSize.body,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            mock?.name ?? 'Unnamed',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: AppColors.textD,
+                                              fontSize: AppTextSize.body,
+                                              fontWeight:
+                                                  isSelected
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
+                                            ),
                                           ),
-                                        ),
-                                        Text(
-                                          ':${mock?.port ?? 8080}',
-                                          style: TextStyle(
-                                            color: AppColors.textD
-                                                .withValues(alpha: 0.45),
-                                            fontSize: AppTextSize.badge,
+                                          Text(
+                                            ':${mock?.port ?? 8080}',
+                                            style: TextStyle(
+                                              color: AppColors.textD.withValues(
+                                                alpha: 0.45,
+                                              ),
+                                              fontSize: AppTextSize.badge,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
 
-                  // Add project button
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.m),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: homeController.createModel,
-                        style: ElevatedButton.styleFrom(elevation: 0),
-                        icon: const Icon(Icons.add, size: 14),
-                        label: const Text(
-                          'Add Project',
-                          style: TextStyle(fontSize: AppTextSize.body),
-                        ),
+                    // // Add project button
+                    // Padding(
+                    //   padding: const EdgeInsets.all(AppSpacing.m),
+                    //   child: SizedBox(
+                    //     width: double.infinity,
+                    //     child: ElevatedButton.icon(
+                    //       onPressed: homeController.createModel,
+                    //       style: ElevatedButton.styleFrom(elevation: 0),
+                    //       icon: const Icon(Icons.add, size: 14),
+                    //       label: const Text(
+                    //         'Add Project',
+                    //         style: TextStyle(fontSize: AppTextSize.body),
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
+                  ],
+                );
+              }),
+            ),
+            Obx(() {
+              final serverIsRunning = homeController.serverIsRunning();
+
+              if (homeController.mockModels.isEmpty) {
+                return Expanded(
+                  child: Center(
+                    child: Text(
+                      'No project available. Please add a new project.',
+                      style: TextStyle(
+                        color: AppColors.textD,
+                        fontSize: AppTextSize.title,
                       ),
                     ),
                   ),
-                ],
-              );
-            }),
-          ),
-          Obx(() {
-            final serverIsRunning = homeController.serverIsRunning();
-
-            if (homeController.mockModels.isEmpty) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    'No project available. Please add a new project.',
-                    style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.title),
-                  ),
-                ),
-              );
-            } else {
-              return Expanded(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(AppSpacing.m),
-                      child: SizedBox(
-                        height: 50,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: SizedBox(
+                );
+              } else {
+                return Expanded(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(AppSpacing.m),
+                        child: SizedBox(
+                          height: 50,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 30,
+                                  child: Center(
+                                    child: Obx(() {
+                                      return CustomTextField(
+                                        controller:
+                                            homeController.hostController.value,
+                                        hintText:
+                                            'Proxy Target URL : https://example.com',
+                                        readOnly: serverIsRunning,
+                                        onChanged: (value) async {
+                                          homeController
+                                              .mockModels[homeController
+                                                  .selectedMockModelIndex
+                                                  .value]!
+                                              .host = value;
+                                          await homeController.save();
+                                          setState(() {});
+                                        },
+                                      );
+                                    }),
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.keyboard_arrow_right_rounded),
+                              Expanded(
+                                child: Tooltip(
+                                  message:
+                                      'On the Android emulator, it usually starts with 10.0.0.2, or you can check it in the emulator settings.',
+                                  child: SizedBox(
+                                    height: 30,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Obx(() {
+                                            return SelectableText(
+                                              '${homeController.ipAddress.value}${!serverIsRunning ? '' : ':${homeController.mockModels[homeController.selectedMockModelIndex.value]?.server?.port}'}',
+                                              style: TextStyle(
+                                                color: AppColors.textD,
+                                                fontSize: AppTextSize.title,
+                                              ),
+                                            );
+                                          }),
+                                          Text(
+                                            'your ip address',
+                                            style: TextStyle(
+                                              color: AppColors.textD,
+                                              fontSize: AppTextSize.badge,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // child: Center(child: CustomTextField()),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: AppSpacing.s),
+                              SizedBox(
                                 height: 30,
+                                width: 100,
                                 child: Center(
                                   child: Obx(() {
                                     return CustomTextField(
                                       controller:
-                                          homeController.hostController.value,
-                                      hintText:
-                                          'Proxy Target URL : https://example.com',
+                                          homeController.portController.value,
+                                      hintText: 'Port',
                                       readOnly: serverIsRunning,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
                                       onChanged: (value) async {
                                         homeController
                                             .mockModels[homeController
                                                 .selectedMockModelIndex
                                                 .value]!
-                                            .host = value;
+                                            .port = int.parse(
+                                          value.isEmpty ? '8080' : value,
+                                        );
                                         await homeController.save();
                                         setState(() {});
                                       },
@@ -356,441 +586,454 @@ class _HomePageState extends State<HomePage> {
                                   }),
                                 ),
                               ),
-                            ),
-                            Icon(Icons.keyboard_arrow_right_rounded),
-                            Expanded(
-                              child: Tooltip(
-                                message:
-                                    'On the Android emulator, it usually starts with 10.0.0.2, or you can check it in the emulator settings.',
-                                child: SizedBox(
-                                  height: 30,
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Obx(() {
-                                          return SelectableText(
-                                            '${homeController.ipAddress.value}${!serverIsRunning ? '' : ':${homeController.mockModels[homeController.selectedMockModelIndex.value]?.server?.port}'}',
-                                            style: TextStyle(
-                                              color: AppColors.textD,
-                                              fontSize: AppTextSize.title,
-                                            ),
+                              SizedBox(width: AppSpacing.s),
+                              Obx(
+                                () => ChipStart(
+                                  label:
+                                      homeController.serverIsRunning()
+                                          ? 'Stop'
+                                          : 'Start',
+                                  color:
+                                      homeController.serverIsRunning()
+                                          ? AppColors.red
+                                          : AppColors.greenD,
+                                  onTap: () async {
+                                    homeController.getIpAddress();
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]
+                                        ?.server
+                                        ?.setHost = homeController
+                                            .mockModels[homeController
+                                                .selectedMockModelIndex
+                                                .value]
+                                            ?.host ??
+                                        '';
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]
+                                        ?.server
+                                        ?.setPort = homeController
+                                            .mockModels[homeController
+                                                .selectedMockModelIndex
+                                                .value]
+                                            ?.port ??
+                                        8080;
+                                    if (homeController
+                                        .portController
+                                        .value
+                                        .text
+                                        .isEmpty) {
+                                      homeController.portController.value.text =
+                                          homeController
+                                              .mockModels[homeController
+                                                  .selectedMockModelIndex
+                                                  .value]!
+                                              .server!
+                                              .port
+                                              .toString();
+                                    }
+
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]
+                                        ?.server
+                                        ?.clearRouters();
+
+                                    if (homeController.serverIsRunning()) {
+                                      await homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]
+                                          ?.server
+                                          ?.stop();
+                                      setState(() {});
+                                      return;
+                                    }
+
+                                    final project =
+                                        homeController.mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value];
+
+                                    // Register HTTP mock endpoints.
+                                    for (final mockModel
+                                        in project?.mockModels ??
+                                            <MockModel>[]) {
+                                      if (!mockModel.enable) continue;
+                                      final customRouter = RoutingCore()
+                                          .getRouter(
+                                            mockModel.method,
+                                            mockModel,
                                           );
-                                        }),
-                                        Text(
-                                          'your ip address',
-                                          style: TextStyle(
-                                            color: AppColors.textD,
-                                            fontSize: AppTextSize.badge,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // child: Center(child: CustomTextField()),
+                                      project?.server?.addRouter(customRouter);
+                                    }
+
+                                    // Register WebSocket mock endpoints.
+                                    project?.server?.clearWsEndpoints();
+                                    for (final wsModel
+                                        in project?.wsMockModels ??
+                                            <WsMockModel>[]) {
+                                      if (!wsModel.enable) continue;
+                                      project?.server?.addWsEndpoint(wsModel);
+                                    }
+
+                                    setState(() {});
+                                    await homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]
+                                        ?.server
+                                        ?.run();
+                                    await homeController.save();
+                                  },
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Divider(thickness: 1),
+                      // ── HTTP / WebSocket tab selector ─────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.m,
+                          vertical: AppSpacing.s,
+                        ),
+                        child: Row(
+                          children: [
+                            _TabChip(
+                              label: 'HTTP',
+                              selected: _endpointTab == 0,
+                              onTap: () => setState(() => _endpointTab = 0),
                             ),
-                            SizedBox(width: AppSpacing.s),
-                            SizedBox(
-                              height: 30,
-                              width: 100,
-                              child: Center(
-                                child: Obx(() {
-                                  return CustomTextField(
-                                    controller:
-                                        homeController.portController.value,
-                                    hintText: 'Port',
-                                    readOnly: serverIsRunning,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    onChanged: (value) async {
+                            const SizedBox(width: AppSpacing.s),
+                            _TabChip(
+                              label: 'WebSocket',
+                              selected: _endpointTab == 1,
+                              onTap: () => setState(() => _endpointTab = 1),
+                              wsStyle: true,
+                            ),
+                            const Spacer(),
+                            ButtonWidget(
+                              color:
+                                  _endpointTab == 0
+                                      ? AppColors.secondaryD
+                                      : AppColors.greenD,
+                              onTap:
+                                  serverIsRunning
+                                      ? null
+                                      : () async {
+                                        if (_endpointTab == 0) {
+                                          final m =
+                                              homeController
+                                                  .mockModels[homeController
+                                                      .selectedMockModelIndex
+                                                      .value]
+                                                  ?.mockModels ??
+                                              [];
+                                          m.add(
+                                            MockModel(
+                                              enable: false,
+                                              endpoint: '',
+                                              statusCode: 200,
+                                              responseBody: '',
+                                              method: 'GET',
+                                            ),
+                                          );
+                                          homeController
+                                              .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value] = homeController
+                                              .mockModels[homeController
+                                                  .selectedMockModelIndex
+                                                  .value]
+                                              ?.copyWith(mockModels: m);
+                                          await homeController.save();
+                                        } else {
+                                          homeController.addWsEndpoint();
+                                        }
+                                        setState(() {});
+                                      },
+                              child: Text(
+                                _endpointTab == 0
+                                    ? 'Add Endpoint'
+                                    : 'Add WS Endpoint',
+                                style: TextStyle(fontSize: AppTextSize.body),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.m,
+                            0,
+                            AppSpacing.m,
+                            AppSpacing.m,
+                          ),
+                          child: Obx(() {
+                            if (reset) return const SizedBox();
+
+                            if (_endpointTab == 1) {
+                              // ── WebSocket endpoint list ───────────────────────
+                              final wsList =
+                                  homeController
+                                      .mockModels[homeController
+                                          .selectedMockModelIndex
+                                          .value]
+                                      ?.wsMockModels ??
+                                  [];
+                              if (wsList.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'No WebSocket endpoints. Add one to get started.',
+                                    style: TextStyle(
+                                      color: AppColors.textD.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      fontSize: AppTextSize.small,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return ListView.builder(
+                                itemCount: wsList.length,
+                                itemBuilder:
+                                    (context, index) => Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: WsEndpointWidget(
+                                        wsIndex: index,
+                                        onDelete: () async {
+                                          homeController.removeWsEndpoint(
+                                            index,
+                                          );
+                                          await change();
+                                        },
+                                      ),
+                                    ),
+                              );
+                            }
+
+                            // ── HTTP endpoint list ────────────────────────────
+                            return ListView.builder(
+                              itemCount:
+                                  homeController
+                                      .mockModels[homeController
+                                          .selectedMockModelIndex
+                                          .value]
+                                      ?.mockModels
+                                      .length ??
+                                  0,
+                              itemBuilder: (context, index) {
+                                final current =
+                                    homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels[index];
+
+                                final hasPriorSame = homeController
+                                    .mockModels[homeController
+                                        .selectedMockModelIndex
+                                        .value]!
+                                    .mockModels
+                                    .sublist(0, index)
+                                    .any(
+                                      (e) =>
+                                          e.enable &&
+                                          e.endpoint == current.endpoint &&
+                                          e.method == current.method,
+                                    );
+
+                                final isNotFirstRunning =
+                                    serverIsRunning && hasPriorSame;
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: EndpointWidget(
+                                    endpointIndex: index,
+                                    isNotFirstRunning: isNotFirstRunning,
+                                    onChangedCheck: (value) async {
                                       homeController
                                           .mockModels[homeController
                                               .selectedMockModelIndex
                                               .value]!
-                                          .port = int.parse(
-                                        value.isEmpty ? '8080' : value,
-                                      );
+                                          .mockModels[index]
+                                          .enable = value ?? false;
                                       await homeController.save();
                                       setState(() {});
                                     },
-                                  );
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Divider(thickness: 1),
-                    // ── HTTP / WebSocket tab selector ─────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.m,
-                        vertical: AppSpacing.s,
-                      ),
-                      child: Row(
-                        children: [
-                          _TabChip(
-                            label: 'HTTP',
-                            selected: _endpointTab == 0,
-                            onTap: () => setState(() => _endpointTab = 0),
-                          ),
-                          const SizedBox(width: AppSpacing.s),
-                          _TabChip(
-                            label: 'WebSocket',
-                            selected: _endpointTab == 1,
-                            onTap: () => setState(() => _endpointTab = 1),
-                            wsStyle: true,
-                          ),
-                          const Spacer(),
-                          ElevatedButton(
-                            onPressed: serverIsRunning
-                                ? null
-                                : () async {
-                                    if (_endpointTab == 0) {
-                                      final m = homeController
-                                              .mockModels[homeController.selectedMockModelIndex.value]
-                                              ?.mockModels ??
-                                          [];
-                                      m.add(MockModel(
-                                        enable: false,
-                                        endpoint: '',
-                                        statusCode: 200,
-                                        responseBody: '',
-                                        method: 'GET',
-                                      ));
-                                      homeController.mockModels[homeController.selectedMockModelIndex.value] =
-                                          homeController
-                                              .mockModels[homeController.selectedMockModelIndex.value]
-                                              ?.copyWith(mockModels: m);
+                                    onChangedEndpoint: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .mockModels[index]
+                                          .endpoint = value;
                                       await homeController.save();
-                                    } else {
-                                      homeController.addWsEndpoint();
-                                    }
-                                    setState(() {});
-                                  },
-                            child: Text(
-                              _endpointTab == 0 ? 'Add Endpoint' : 'Add WS Endpoint',
+                                      setState(() {});
+                                    },
+                                    onChangedStatusCode: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .mockModels[index]
+                                          .statusCode = int.parse(value);
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                    onChangedDelay: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .mockModels[index]
+                                          .delay = int.tryParse(value);
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                    onChangedMethod: (value) async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .mockModels[index]
+                                          .method = value;
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                    onDelete: () async {
+                                      homeController
+                                          .mockModels[homeController
+                                              .selectedMockModelIndex
+                                              .value]!
+                                          .mockModels
+                                          .removeAt(index);
+                                      await homeController.save();
+                                      setState(() {});
+                                    },
+                                  ),
+                                );
+                              },
+                            );
+                          }),
+                        ),
+                      ),
+                      Visibility(
+                        visible: homeController.showLog.value,
+                        child: SizedBox(
+                          height: 200,
+                          width: MediaQuery.sizeOf(context).width,
+                          child: ColoredBox(
+                            color: AppColors.terminalD,
+                            child: TerminalWidget(
+                              logNotifier:
+                                  homeController
+                                      .mockModels[homeController
+                                          .selectedMockModelIndex
+                                          .value]
+                                      ?.server
+                                      ?.logService
+                                      .logs ??
+                                  ValueNotifier<List<LogModel>>([]),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.m, 0, AppSpacing.m, AppSpacing.m,
                         ),
-                        child: Obx(() {
-                          if (reset) return const SizedBox();
-
-                          if (_endpointTab == 1) {
-                            // ── WebSocket endpoint list ───────────────────────
-                            final wsList = homeController
-                                    .mockModels[homeController.selectedMockModelIndex.value]
-                                    ?.wsMockModels ??
-                                [];
-                            if (wsList.isEmpty) {
-                              return Center(
-                                child: Text(
-                                  'No WebSocket endpoints. Add one to get started.',
-                                  style: TextStyle(
-                                    color: AppColors.textD.withValues(alpha: 0.3),
-                                    fontSize: AppTextSize.small,
+                      ),
+                      Container(
+                        height: 25,
+                        width: MediaQuery.sizeOf(context).width,
+                        color: colors(
+                          context,
+                        ).secondaryDarkness.withValues(alpha: 0.2),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xs),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  homeController.showLog.value =
+                                      !homeController.showLog.value;
+                                  setState(() {});
+                                },
+                                child: SizedBox(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.terminal_rounded, size: 15),
+                                      SizedBox(width: AppSpacing.s),
+                                      Text(
+                                        'log',
+                                        style: TextStyle(
+                                          fontSize: AppTextSize.body,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                            }
-                            return ListView.builder(
-                              itemCount: wsList.length,
-                              itemBuilder: (context, index) => Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: WsEndpointWidget(
-                                  wsIndex: index,
-                                  onDelete: () async {
-                                    homeController.removeWsEndpoint(index);
-                                    await change();
-                                  },
-                                ),
                               ),
-                            );
-                          }
-
-                          // ── HTTP endpoint list ────────────────────────────
-                          return ListView.builder(
-                            itemCount:
-                                homeController
-                                    .mockModels[homeController.selectedMockModelIndex.value]
-                                    ?.mockModels
-                                    .length ??
-                                0,
-                            itemBuilder: (context, index) {
-                              final current = homeController
-                                  .mockModels[homeController.selectedMockModelIndex.value]!
-                                  .mockModels[index];
-
-                              final hasPriorSame = homeController
-                                  .mockModels[homeController.selectedMockModelIndex.value]!
-                                  .mockModels
-                                  .sublist(0, index)
-                                  .any(
-                                    (e) =>
-                                        e.enable &&
-                                        e.endpoint == current.endpoint &&
-                                        e.method == current.method,
-                                  );
-
-                              final isNotFirstRunning = serverIsRunning && hasPriorSame;
-
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: EndpointWidget(
-                                  endpointIndex: index,
-                                  isNotFirstRunning: isNotFirstRunning,
-                                  onChangedCheck: (value) async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels[index]
-                                        .enable = value ?? false;
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                  onChangedEndpoint: (value) async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels[index]
-                                        .endpoint = value;
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                  onChangedStatusCode: (value) async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels[index]
-                                        .statusCode = int.parse(value);
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                  onChangedDelay: (value) async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels[index]
-                                        .delay = int.tryParse(value);
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                  onChangedMethod: (value) async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels[index]
-                                        .method = value;
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                  onDelete: () async {
-                                    homeController
-                                        .mockModels[homeController.selectedMockModelIndex.value]!
-                                        .mockModels
-                                        .removeAt(index);
-                                    await homeController.save();
-                                    setState(() {});
-                                  },
-                                ),
-                              );
-                            },
-                          );
-                        }),
-                      ),
-                    ),
-                    Visibility(
-                      visible: homeController.showLog.value,
-                      child: SizedBox(
-                        height: 200,
-                        width: MediaQuery.sizeOf(context).width,
-                        child: ColoredBox(
-                          color: AppColors.terminalD,
-                          child: TerminalWidget(
-                            logNotifier: homeController
-                                    .mockModels[homeController
-                                        .selectedMockModelIndex
-                                        .value]
-                                    ?.server
-                                    ?.logService
-                                    .logs ??
-                                ValueNotifier<List<LogModel>>([]),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      height: 25,
-                      width: MediaQuery.sizeOf(context).width,
-                      color: colors(context).secondaryDarkness,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                homeController.showLog.value =
-                                    !homeController.showLog.value;
-                                setState(() {});
-                              },
-                              child: SizedBox(
+                              SizedBox(width: AppSpacing.xl),
+                              Visibility(
+                                visible:
+                                    (homeController
+                                            .mockModels[homeController
+                                                .selectedMockModelIndex
+                                                .value]
+                                            ?.mockModels
+                                            .where((e) => e.enable)
+                                            .length ??
+                                        0) !=
+                                    0,
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.terminal_rounded, size: 15),
+                                    Icon(Icons.wifi_tethering, size: 15),
                                     SizedBox(width: AppSpacing.s),
-                                    Text('log', style: TextStyle(fontSize: AppTextSize.body)),
+                                    Text(
+                                      '${homeController.mockModels[homeController.selectedMockModelIndex.value]?.mockModels.where((e) => e.enable).length} ${serverIsRunning ? 'running...' : 'ready to mock'}',
+                                      style: TextStyle(
+                                        fontSize: AppTextSize.body,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                            ),
-                            SizedBox(width: AppSpacing.xl),
-                            Visibility(
-                              visible:
-                                  (homeController
-                                          .mockModels[homeController
-                                              .selectedMockModelIndex
-                                              .value]
-                                          ?.mockModels
-                                          .where((e) => e.enable)
-                                          .length ??
-                                      0) !=
-                                  0,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.wifi_tethering, size: 15),
-                                  SizedBox(width: AppSpacing.s),
-                                  Text(
-                                    '${homeController.mockModels[homeController.selectedMockModelIndex.value]?.mockModels.where((e) => e.enable).length} ${serverIsRunning ? 'running...' : 'ready to mock'}',
-                                    style: TextStyle(fontSize: AppTextSize.body),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }
-          }),
-          // Column(
-          //   children: [
-          //     ElevatedButton(
-          //       onPressed: () {
-          //         homeController.clearAll();
-          //       },
-          //       child: Text('Clear All'),
-          //     ),
-          //     ElevatedButton(
-          //       onPressed: () {
-          //         homeController.getAll();
-          //       },
-          //       child: Text('Get All'),
-          //     ),
-          //   ],
-          // ),
+                    ],
+                  ),
+                );
+              }
+            }),
+            // Column(
+            //   children: [
+            //     ElevatedButton(
+            //       onPressed: () {
+            //         homeController.clearAll();
+            //       },
+            //       child: Text('Clear All'),
+            //     ),
+            //     ElevatedButton(
+            //       onPressed: () {
+            //         homeController.getAll();
+            //       },
+            //       child: Text('Get All'),
+            //     ),
+            //   ],
+            // ),
           ], // close else branch
         ],
       ),
-      floatingActionButton: _mode == _AppMode.httpClient
-          ? null
-          : Obx(() {
-        return homeController.mockModels.isEmpty
-            ? SizedBox()
-            : FloatingActionButton(
-              backgroundColor:
-                  homeController.serverIsRunning()
-                      ? AppColors.red
-                      : colors(context).greenDarkness,
-              onPressed: () async {
-                homeController.getIpAddress();
-                homeController
-                    .mockModels[homeController.selectedMockModelIndex.value]
-                    ?.server
-                    ?.setHost = homeController
-                        .mockModels[homeController.selectedMockModelIndex.value]
-                        ?.host ??
-                    '';
-                homeController
-                    .mockModels[homeController.selectedMockModelIndex.value]
-                    ?.server
-                    ?.setPort = homeController
-                        .mockModels[homeController.selectedMockModelIndex.value]
-                        ?.port ??
-                    8080;
-                if (homeController.portController.value.text.isEmpty) {
-                  homeController.portController.value.text =
-                      homeController
-                          .mockModels[homeController
-                              .selectedMockModelIndex
-                              .value]!
-                          .server!
-                          .port
-                          .toString();
-                }
-
-                homeController
-                    .mockModels[homeController.selectedMockModelIndex.value]
-                    ?.server
-                    ?.clearRouters();
-
-                if (homeController.serverIsRunning()) {
-                  await homeController
-                      .mockModels[homeController.selectedMockModelIndex.value]
-                      ?.server
-                      ?.stop();
-                  setState(() {});
-                  return;
-                }
-
-                final project = homeController
-                    .mockModels[homeController.selectedMockModelIndex.value];
-
-                // Register HTTP mock endpoints.
-                for (final mockModel in project?.mockModels ?? <MockModel>[]) {
-                  if (!mockModel.enable) continue;
-                  final customRouter = RoutingCore().getRouter(
-                    mockModel.method,
-                    mockModel,
-                  );
-                  project?.server?.addRouter(customRouter);
-                }
-
-                // Register WebSocket mock endpoints.
-                project?.server?.clearWsEndpoints();
-                for (final wsModel in project?.wsMockModels ?? <WsMockModel>[]) {
-                  if (!wsModel.enable) continue;
-                  project?.server?.addWsEndpoint(wsModel);
-                }
-
-                setState(() {});
-                await homeController
-                    .mockModels[homeController.selectedMockModelIndex.value]
-                    ?.server
-                    ?.run();
-                await homeController.save();
-              },
-              child: Icon(
-                homeController.serverIsRunning()
-                    ? Icons.stop
-                    : Icons.play_arrow,
-                color: Colors.white,
-              ),
-            );
-      }),
     );
   }
 }
@@ -821,24 +1064,24 @@ class _ActivityIcon extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            color: selected
-                ? AppColors.secondaryD.withValues(alpha: 0.25)
-                : Colors.transparent,
-            border: selected
-                ? Border(
-                    left: BorderSide(
-                      color: AppColors.secondaryD,
-                      width: 2,
-                    ),
-                  )
-                : null,
+            color:
+                selected
+                    ? AppColors.secondaryD.withValues(alpha: 0.25)
+                    : Colors.transparent,
+            border:
+                selected
+                    ? Border(
+                      left: BorderSide(color: AppColors.secondaryD, width: 2),
+                    )
+                    : null,
           ),
           child: Icon(
             icon,
             size: 20,
-            color: selected
-                ? AppColors.secondaryD
-                : AppColors.textD.withValues(alpha: 0.5),
+            color:
+                selected
+                    ? AppColors.secondaryD
+                    : AppColors.textD.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -852,43 +1095,47 @@ class _TabChip extends StatelessWidget {
   const _TabChip({
     required this.label,
     required this.selected,
-    required this.onTap,
+    this.onTap,
     this.wsStyle = false,
+    this.bgColor,
   });
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final Function? onTap;
   final bool wsStyle;
+  final Color? bgColor;
 
   @override
   Widget build(BuildContext context) {
     final activeColor =
         wsStyle ? const Color(0xFF4DFFD6) : AppColors.secondaryD;
     return InkWell(
-      onTap: onTap,
+      onTap: onTap != null ? () => onTap!() : null,
       borderRadius: BorderRadius.circular(5),
       child: Container(
         height: 28,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
         decoration: BoxDecoration(
-          color: selected
-              ? activeColor.withValues(alpha: 0.12)
-              : Colors.transparent,
+          color:
+              bgColor ??
+              (selected
+                  ? activeColor.withValues(alpha: 0.12)
+                  : Colors.transparent),
           borderRadius: BorderRadius.circular(5),
           border: Border.all(
-            color: selected
-                ? activeColor.withValues(alpha: 0.5)
-                : AppColors.textD.withValues(alpha: 0.15),
+            color:
+                selected
+                    ? activeColor.withValues(alpha: 0.5)
+                    : AppColors.textD.withValues(alpha: 0.15),
           ),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: TextStyle(
-            color: selected
-                ? activeColor
-                : AppColors.textD.withValues(alpha: 0.5),
+            color:
+                selected ? activeColor : AppColors.textD.withValues(alpha: 0.5),
             fontSize: AppTextSize.small,
             fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           ),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:mockondo/core/widgets/interpolation_textfield.dart';
 import 'package:mockondo/features/http_client/data/models/ws_client_model.dart';
 import 'package:mockondo/features/http_client/presentation/controllers/ws_client_controller.dart';
 import 'package:mockondo/features/http_client/presentation/widgets/key_value_table.dart';
@@ -48,7 +50,7 @@ class WsClientPage extends StatelessWidget {
                         child: Icon(
                           Icons.add,
                           size: 16,
-                          color: AppColors.textD,
+                          color: AppColors.greenD,
                         ),
                       ),
                     ),
@@ -143,10 +145,10 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      ctrl.connVersion.value; // track any connection state change
       final item = ctrl.items[index];
       final isSelected = ctrl.selectedIndex.value == index;
-      final isConnectedItem =
-          isSelected && ctrl.connected.value;
+      final isConnectedItem = ctrl.isItemConnected(item.id);
 
       return GestureDetector(
         onSecondaryTapDown: (d) => _showMenu(context, d.globalPosition),
@@ -158,14 +160,13 @@ class _SidebarItem extends StatelessWidget {
               vertical: AppSpacing.s,
             ),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.secondaryD.withValues(alpha: 0.12)
-                  : Colors.transparent,
+              color:
+                  isSelected
+                      ? AppColors.secondaryD.withValues(alpha: 0.12)
+                      : Colors.transparent,
               border: Border(
                 left: BorderSide(
-                  color: isSelected
-                      ? AppColors.secondaryD
-                      : Colors.transparent,
+                  color: isSelected ? AppColors.secondaryD : Colors.transparent,
                   width: 2,
                 ),
               ),
@@ -178,9 +179,10 @@ class _SidebarItem extends StatelessWidget {
                   height: 7,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isConnectedItem
-                        ? const Color(0xFF4DFFD6)
-                        : AppColors.textD.withValues(alpha: 0.25),
+                    color:
+                        isConnectedItem
+                            ? const Color(0xFF4DFFD6)
+                            : AppColors.textD.withValues(alpha: 0.25),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s),
@@ -189,9 +191,10 @@ class _SidebarItem extends StatelessWidget {
                     item.name.isEmpty ? 'New Connection' : item.name,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: isSelected
-                          ? AppColors.textD
-                          : AppColors.textD.withValues(alpha: 0.7),
+                      color:
+                          isSelected
+                              ? AppColors.textD
+                              : AppColors.textD.withValues(alpha: 0.7),
                       fontSize: AppTextSize.small,
                     ),
                   ),
@@ -358,23 +361,21 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                 // Connect / Disconnect button
                 SizedBox(
                   height: 32,
-                  child: ElevatedButton(
-                    onPressed: isConnected ? ctrl.disconnect : ctrl.connect,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: isConnected
-                          ? AppColors.red.withValues(alpha: 0.85)
-                          : const Color(0xFF1A6B5E),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.l,
-                      ),
-                    ),
+                  child: ButtonWidget(
+                    onTap: () async {
+                      isConnected ? ctrl.disconnect() : ctrl.connect();
+                    },
+                    color:
+                        isConnected
+                            ? AppColors.red.withValues(alpha: 0.85)
+                            : const Color(0xFF1A6B5E),
                     child: Text(
                       isConnected ? 'Disconnect' : 'Connect',
                       style: TextStyle(
-                        color: isConnected
-                            ? Colors.white
-                            : const Color(0xFF4DFFD6),
+                        color:
+                            isConnected
+                                ? Colors.white
+                                : const Color(0xFF4DFFD6),
                         fontSize: AppTextSize.body,
                         fontWeight: FontWeight.w600,
                       ),
@@ -412,9 +413,8 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
 
           // ── Tab body ──────────────────────────────────────────────
           Expanded(
-            child: _tab == 0
-                ? _buildMessages(isConnected)
-                : _buildHeaders(item),
+            child:
+                _tab == 0 ? _buildMessages(isConnected) : _buildHeaders(item),
           ),
         ],
       );
@@ -456,9 +456,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
           padding: const EdgeInsets.all(AppSpacing.m),
           decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(
-                color: AppColors.textD.withValues(alpha: 0.1),
-              ),
+              top: BorderSide(color: AppColors.textD.withValues(alpha: 0.1)),
             ),
           ),
           child: Row(
@@ -466,7 +464,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
               Expanded(
                 child: SizedBox(
                   height: 36,
-                  child: CustomTextField(
+                  child: InterpolationTextField(
                     controller: _msgCtrl,
                     hintText: 'Type a message…',
                     readOnly: !isConnected,
@@ -478,14 +476,11 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
               const SizedBox(width: AppSpacing.m),
               SizedBox(
                 height: 36,
-                child: ElevatedButton(
-                  onPressed: isConnected ? _sendMessage : null,
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.l,
-                    ),
-                  ),
+                child: ButtonWidget(
+                  onTap: () async {
+                    isConnected ? _sendMessage() : null;
+                  },
+                  color: isConnected ? AppColors.secondaryD : AppColors.surfaceD,
                   child: const Text(
                     'Send',
                     style: TextStyle(fontSize: AppTextSize.body),
@@ -526,9 +521,11 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSent = msg.isSent;
-    final isSystem = !isSent && (msg.text.startsWith('✅') ||
-        msg.text.startsWith('🔌') ||
-        msg.text.startsWith('❌'));
+    final isSystem =
+        !isSent &&
+        (msg.text.startsWith('✅') ||
+            msg.text.startsWith('🔌') ||
+            msg.text.startsWith('❌'));
 
     if (isSystem) {
       return Padding(
@@ -574,20 +571,21 @@ class _MessageBubble extends StatelessWidget {
                 vertical: AppSpacing.s,
               ),
               decoration: BoxDecoration(
-                color: isSent
-                    ? AppColors.secondaryD.withValues(alpha: 0.18)
-                    : AppColors.surfaceD.withValues(alpha: 0.35),
+                color:
+                    isSent
+                        ? AppColors.secondaryD.withValues(alpha: 0.18)
+                        : AppColors.surfaceD.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isSent
-                      ? AppColors.secondaryD.withValues(alpha: 0.3)
-                      : AppColors.textD.withValues(alpha: 0.1),
+                  color:
+                      isSent
+                          ? AppColors.secondaryD.withValues(alpha: 0.3)
+                          : AppColors.textD.withValues(alpha: 0.1),
                 ),
               ),
               child: Column(
-                crossAxisAlignment: isSent
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   Text(
                     msg.text,

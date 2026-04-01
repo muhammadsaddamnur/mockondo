@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
@@ -214,9 +215,11 @@ class _WsResponseWidgetState extends State<WsResponseWidget> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s),
-                ElevatedButton(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(elevation: 0),
+                ButtonWidget(
+                  onTap: () async {
+                    _save();
+                  },
+                  color: AppColors.secondaryD,
                   child: const Text(
                     'Save Changes',
                     style: TextStyle(fontSize: AppTextSize.body),
@@ -308,8 +311,8 @@ class _WsResponseWidgetState extends State<WsResponseWidget> {
               const Spacer(),
               SizedBox(
                 height: 28,
-                child: ElevatedButton.icon(
-                  onPressed: () {
+                child: ButtonWidget(
+                  onTap: () async {
                     setState(() {
                       _rows.add(
                         _RuleRow(
@@ -321,14 +324,8 @@ class _WsResponseWidgetState extends State<WsResponseWidget> {
                       );
                     });
                   },
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.m,
-                    ),
-                  ),
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text(
+                  color: AppColors.secondaryD,
+                  child: const Text(
                     'Add Rule',
                     style: TextStyle(fontSize: AppTextSize.small),
                   ),
@@ -476,8 +473,8 @@ class _WsResponseWidgetState extends State<WsResponseWidget> {
               const Spacer(),
               SizedBox(
                 height: 28,
-                child: ElevatedButton.icon(
-                  onPressed: () {
+                child: ButtonWidget(
+                  onTap: () async {
                     setState(() {
                       _schedRows.add(
                         _SchedRow(
@@ -491,15 +488,9 @@ class _WsResponseWidgetState extends State<WsResponseWidget> {
                       );
                     });
                   },
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.m,
-                    ),
-                  ),
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text(
-                    'Add',
+                  color: AppColors.secondaryD,
+                  child: const Text(
+                    'Add Scheduled Message',
                     style: TextStyle(fontSize: AppTextSize.small),
                   ),
                 ),

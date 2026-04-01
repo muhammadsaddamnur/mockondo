@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_drop_down.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
@@ -50,21 +51,22 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
       statusCodeController.text = rule.ruleStatusCode.toString();
       bodyController.text = rule.response;
       logic = rule.logic;
-      conditions = rule.conditions
-          .map(
-            (c) => _ConditionRow(
-              id: c.id,
-              target: c.target,
-              key: c.key,
-              operator: c.operator,
-              value: c.value,
-            ),
-          )
-          .toList();
-      headerRows = (rule.responseHeader ?? {})
-          .entries
-          .map((e) => _HeaderRow(key: e.key, value: e.value.toString()))
-          .toList();
+      conditions =
+          rule.conditions
+              .map(
+                (c) => _ConditionRow(
+                  id: c.id,
+                  target: c.target,
+                  key: c.key,
+                  operator: c.operator,
+                  value: c.value,
+                ),
+              )
+              .toList();
+      headerRows =
+          (rule.responseHeader ?? {}).entries
+              .map((e) => _HeaderRow(key: e.key, value: e.value.toString()))
+              .toList();
     } else {
       ruleId = UuidV4().generate();
       statusCodeController.text = '200';
@@ -97,17 +99,19 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
   }
 
   void _save() {
-    final conditionMaps = conditions
-        .map(
-          (c) => ResponseCondition(
-            id: c.id,
-            target: c.target,
-            key: c.keyController.text.trim(),
-            operator: c.operator,
-            value: c.valueController.text.trim(),
-          ).toJson(),
-        )
-        .toList();
+    final conditionMaps =
+        conditions
+            .map(
+              (c) =>
+                  ResponseCondition(
+                    id: c.id,
+                    target: c.target,
+                    key: c.keyController.text.trim(),
+                    operator: c.operator,
+                    value: c.valueController.text.trim(),
+                  ).toJson(),
+            )
+            .toList();
 
     final headers = <String, Object>{};
     for (final r in headerRows) {
@@ -149,270 +153,300 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-              Row(
+            Row(
+              children: [
+                Text(
+                  widget.existingRule == null
+                      ? 'Add Response Rule'
+                      : 'Edit Response Rule',
+                  style: TextStyle(
+                    color: AppColors.textD,
+                    fontSize: AppTextSize.title,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  borderRadius: BorderRadius.circular(25),
+                  onTap: () => Navigator.pop(context),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 14, color: AppColors.textD),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.existingRule == null ? 'Add Response Rule' : 'Edit Response Rule',
-                    style: TextStyle(
-                      color: AppColors.textD,
-                      fontSize: AppTextSize.title,
-                      fontWeight: FontWeight.bold,
+                  // Left: conditions
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Label + status code
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _label('Rule Label'),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  SizedBox(
+                                    height: 30,
+                                    child: InterpolationTextField(
+                                      controller: labelController,
+                                      hintText: 'e.g. Unauthorized',
+                                      textSize: 12,
+                                      readOnly: widget.readOnly,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.l),
+                            SizedBox(
+                              width: 80,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _label('Status'),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  SizedBox(
+                                    height: 30,
+                                    child: CustomTextField(
+                                      controller: statusCodeController,
+                                      hintText: '200',
+                                      textSize: 12,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      readOnly: widget.readOnly,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.l),
+
+                        // Logic selector
+                        Row(
+                          children: [
+                            Text(
+                              'If ',
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: AppTextSize.body,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 80,
+                              height: 30,
+                              child: CustomDropDown<RulesLogic>(
+                                value: logic,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: RulesLogic.and,
+                                    child: Text(
+                                      'ALL',
+                                      style: TextStyle(
+                                        fontSize: AppTextSize.body,
+                                      ),
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: RulesLogic.or,
+                                    child: Text(
+                                      'ANY',
+                                      style: TextStyle(
+                                        fontSize: AppTextSize.body,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                onChanged:
+                                    widget.readOnly
+                                        ? null
+                                        : (v) => setState(() => logic = v!),
+                              ),
+                            ),
+                            Text(
+                              ' of these conditions match:',
+                              style: TextStyle(
+                                color: AppColors.textD,
+                                fontSize: AppTextSize.body,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.m),
+
+                        // Conditions list
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: conditions.length,
+                            itemBuilder: (context, i) {
+                              final c = conditions[i];
+                              return _ConditionRowWidget(
+                                key: ValueKey(c.id),
+                                row: c,
+                                readOnly: widget.readOnly,
+                                onRemove:
+                                    conditions.length > 1
+                                        ? () => _removeCondition(i)
+                                        : null,
+                                onChanged: () => setState(() {}),
+                              );
+                            },
+                          ),
+                        ),
+
+                        if (!widget.readOnly) ...[
+                          const SizedBox(height: AppSpacing.m),
+                          InkWell(
+                            onTap: _addCondition,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.m,
+                                vertical: AppSpacing.xs,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.add,
+                                    size: 14,
+                                    color: AppColors.greenD,
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  Text(
+                                    'Add Condition',
+                                    style: TextStyle(
+                                      color: AppColors.greenD,
+                                      fontSize: AppTextSize.body,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(25),
-                    onTap: () => Navigator.pop(context),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(Icons.close, size: 14, color: AppColors.textD),
+
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 1,
+                    color: AppColors.textD.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Right: response body + headers tabs
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            AppTabBar(
+                              tabs: [
+                                'Body',
+                                'Headers (${headerRows.where((r) => r.keyController.text.trim().isNotEmpty).length})',
+                              ],
+                              selected: _rightTab,
+                              onTap: (i) => setState(() => _rightTab = i),
+                            ),
+                            const Spacer(),
+                            if (!widget.readOnly)
+                              _EndpointPickerButton(
+                                onSelected: (endpoint) {
+                                  setState(() {
+                                    statusCodeController.text =
+                                        endpoint.statusCode.toString();
+                                    bodyController.text = endpoint.responseBody;
+                                    for (final r in headerRows) {
+                                      r.keyController.dispose();
+                                      r.valueController.dispose();
+                                    }
+                                    headerRows =
+                                        (endpoint.responseHeader ?? {}).entries
+                                            .map(
+                                              (e) => _HeaderRow(
+                                                key: e.key,
+                                                value: e.value.toString(),
+                                              ),
+                                            )
+                                            .toList();
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        if (_rightTab == 0)
+                          Expanded(
+                            child: CustomJsonTextField(
+                              hintText: 'Response body...',
+                              controller: bodyController,
+                              onChanged: (_) {},
+                              readOnly: widget.readOnly,
+                            ),
+                          )
+                        else
+                          Expanded(
+                            child: _HeadersEditor(
+                              rows: headerRows,
+                              readOnly: widget.readOnly,
+                              onChanged: () => setState(() {}),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+            ),
 
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left: conditions
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Label + status code
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _label('Rule Label'),
-                                    const SizedBox(height: AppSpacing.xs),
-                                    SizedBox(
-                                      height: 30,
-                                      child: InterpolationTextField(
-                                        controller: labelController,
-                                        hintText: 'e.g. Unauthorized',
-                                        textSize: 12,
-                                        readOnly: widget.readOnly,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.l),
-                              SizedBox(
-                                width: 80,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _label('Status'),
-                                    const SizedBox(height: AppSpacing.xs),
-                                    SizedBox(
-                                      height: 30,
-                                      child: CustomTextField(
-                                        controller: statusCodeController,
-                                        hintText: '200',
-                                        textSize: 12,
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
-                                        ],
-                                        readOnly: widget.readOnly,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.l),
-
-                          // Logic selector
-                          Row(
-                            children: [
-                              Text(
-                                'If ',
-                                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
-                              ),
-                              SizedBox(
-                                width: 80,
-                                height: 30,
-                                child: CustomDropDown<RulesLogic>(
-                                  value: logic,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: RulesLogic.and,
-                                      child: Text('ALL', style: TextStyle(fontSize: AppTextSize.body)),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: RulesLogic.or,
-                                      child: Text('ANY', style: TextStyle(fontSize: AppTextSize.body)),
-                                    ),
-                                  ],
-                                  onChanged: widget.readOnly
-                                      ? null
-                                      : (v) => setState(() => logic = v!),
-                                ),
-                              ),
-                              Text(
-                                ' of these conditions match:',
-                                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.m),
-
-                          // Conditions list
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: conditions.length,
-                              itemBuilder: (context, i) {
-                                final c = conditions[i];
-                                return _ConditionRowWidget(
-                                  key: ValueKey(c.id),
-                                  row: c,
-                                  readOnly: widget.readOnly,
-                                  onRemove: conditions.length > 1
-                                      ? () => _removeCondition(i)
-                                      : null,
-                                  onChanged: () => setState(() {}),
-                                );
-                              },
-                            ),
-                          ),
-
-                          if (!widget.readOnly) ...[
-                            const SizedBox(height: AppSpacing.m),
-                            InkWell(
-                              onTap: _addCondition,
-                              borderRadius: BorderRadius.circular(4),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.m,
-                                  vertical: AppSpacing.xs,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.add,
-                                      size: 14,
-                                      color: AppColors.greenD,
-                                    ),
-                                    const SizedBox(width: AppSpacing.xs),
-                                    Text(
-                                      'Add Condition',
-                                      style: TextStyle(
-                                        color: AppColors.greenD,
-                                        fontSize: AppTextSize.body,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+            const SizedBox(height: AppSpacing.l),
+            if (!widget.readOnly)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: AppColors.textD,
+                        fontSize: AppTextSize.body,
                       ),
                     ),
-
-                    const SizedBox(width: 12),
-                    Container(width: 1, color: AppColors.textD.withValues(alpha: 0.2)),
-                    const SizedBox(width: 12),
-
-                    // Right: response body + headers tabs
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              AppTabBar(
-                                tabs: [
-                                  'Body',
-                                  'Headers (${headerRows.where((r) => r.keyController.text.trim().isNotEmpty).length})',
-                                ],
-                                selected: _rightTab,
-                                onTap: (i) => setState(() => _rightTab = i),
-                              ),
-                              const Spacer(),
-                              if (!widget.readOnly)
-                                _EndpointPickerButton(
-                                  onSelected: (endpoint) {
-                                    setState(() {
-                                      statusCodeController.text =
-                                          endpoint.statusCode.toString();
-                                      bodyController.text = endpoint.responseBody;
-                                      for (final r in headerRows) {
-                                        r.keyController.dispose();
-                                        r.valueController.dispose();
-                                      }
-                                      headerRows = (endpoint.responseHeader ?? {})
-                                          .entries
-                                          .map((e) => _HeaderRow(
-                                                key: e.key,
-                                                value: e.value.toString(),
-                                              ))
-                                          .toList();
-                                    });
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          if (_rightTab == 0)
-                            Expanded(
-                              child: CustomJsonTextField(
-                                hintText: 'Response body...',
-                                controller: bodyController,
-                                onChanged: (_) {},
-                                readOnly: widget.readOnly,
-                              ),
-                            )
-                          else
-                            Expanded(
-                              child: _HeadersEditor(
-                                rows: headerRows,
-                                readOnly: widget.readOnly,
-                                onChanged: () => setState(() {}),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  ButtonWidget(
+                    onTap: () async {
+                      _save();
+                    },
+                    color: AppColors.secondaryD,
+                    child: const Text('Save Rule'),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: AppSpacing.l),
-              if (!widget.readOnly)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _save,
-                      style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                      child: const Text('Save Rule'),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _label(String text) => Text(
@@ -428,8 +462,8 @@ class _HeaderRow {
   final TextEditingController valueController;
 
   _HeaderRow({String key = '', String value = ''})
-      : keyController = TextEditingController(text: key),
-        valueController = TextEditingController(text: value);
+    : keyController = TextEditingController(text: key),
+      valueController = TextEditingController(text: value);
 }
 
 // ── Headers editor ────────────────────────────────────────────────────────────
@@ -527,7 +561,10 @@ class _HeadersEditor extends StatelessWidget {
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     'Add',
-                    style: TextStyle(color: AppColors.greenD, fontSize: AppTextSize.small),
+                    style: TextStyle(
+                      color: AppColors.greenD,
+                      fontSize: AppTextSize.small,
+                    ),
                   ),
                 ],
               ),
@@ -547,7 +584,8 @@ class _EndpointPickerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final homeController = Get.find<HomeController>();
-    final endpoints = homeController
+    final endpoints =
+        homeController
             .mockModels[homeController.selectedMockModelIndex.value]
             ?.mockModels ??
         [];
@@ -567,42 +605,43 @@ class _EndpointPickerButton extends StatelessWidget {
             offset.dx + 200,
             offset.dy,
           ),
-          items: endpoints.map((e) {
-            return PopupMenuItem<MockModel>(
-              value: e,
-              child: Row(
-                children: [
-                  Text(
-                    e.method,
-                    style: TextStyle(
-                      color: AppColors.methodColor(e.method),
-                      fontSize: AppTextSize.badge,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s),
-                  Expanded(
-                    child: Text(
-                      e.endpoint,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.textD,
-                        fontSize: AppTextSize.small,
+          items:
+              endpoints.map((e) {
+                return PopupMenuItem<MockModel>(
+                  value: e,
+                  child: Row(
+                    children: [
+                      Text(
+                        e.method,
+                        style: TextStyle(
+                          color: AppColors.methodColor(e.method),
+                          fontSize: AppTextSize.badge,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: AppSpacing.s),
+                      Expanded(
+                        child: Text(
+                          e.endpoint,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.textD,
+                            fontSize: AppTextSize.small,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.s),
+                      Text(
+                        e.statusCode.toString(),
+                        style: TextStyle(
+                          color: AppColors.textD.withValues(alpha: 0.5),
+                          fontSize: AppTextSize.badge,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.s),
-                  Text(
-                    e.statusCode.toString(),
-                    style: TextStyle(
-                      color: AppColors.textD.withValues(alpha: 0.5),
-                      fontSize: AppTextSize.badge,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                );
+              }).toList(),
         ).then((selected) {
           if (selected != null) onSelected(selected);
         });
@@ -646,16 +685,16 @@ class _ConditionRow {
     required String key,
     required this.operator,
     required String value,
-  })  : keyController = TextEditingController(text: key),
-        valueController = TextEditingController(text: value);
+  }) : keyController = TextEditingController(text: key),
+       valueController = TextEditingController(text: value);
 
   factory _ConditionRow.empty() => _ConditionRow(
-        id: UuidV4().generate(),
-        target: ResponseRuleTarget.queryParam,
-        key: '',
-        operator: ResponseRuleOperator.equals,
-        value: '',
-      );
+    id: UuidV4().generate(),
+    target: ResponseRuleTarget.queryParam,
+    key: '',
+    operator: ResponseRuleOperator.equals,
+    value: '',
+  );
 
   String get key => keyController.text;
   String get value => valueController.text;
@@ -714,20 +753,22 @@ class _ConditionRowWidgetState extends State<_ConditionRowWidget> {
             height: 30,
             child: CustomDropDown<ResponseRuleTarget>(
               value: row.target,
-              items: ResponseRuleTarget.values
-                  .map(
-                    (t) => DropdownMenuItem(
-                      value: t,
-                      child: Text(
-                        _targetLabels[t]!,
-                        style: const TextStyle(fontSize: AppTextSize.small),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: widget.readOnly
-                  ? null
-                  : (v) => setState(() => row.target = v!),
+              items:
+                  ResponseRuleTarget.values
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(
+                            _targetLabels[t]!,
+                            style: const TextStyle(fontSize: AppTextSize.small),
+                          ),
+                        ),
+                      )
+                      .toList(),
+              onChanged:
+                  widget.readOnly
+                      ? null
+                      : (v) => setState(() => row.target = v!),
             ),
           ),
           const SizedBox(width: 6),
@@ -752,20 +793,22 @@ class _ConditionRowWidgetState extends State<_ConditionRowWidget> {
             height: 30,
             child: CustomDropDown<ResponseRuleOperator>(
               value: row.operator,
-              items: ResponseRuleOperator.values
-                  .map(
-                    (o) => DropdownMenuItem(
-                      value: o,
-                      child: Text(
-                        _operatorLabels[o]!,
-                        style: const TextStyle(fontSize: AppTextSize.small),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: widget.readOnly
-                  ? null
-                  : (v) => setState(() => row.operator = v!),
+              items:
+                  ResponseRuleOperator.values
+                      .map(
+                        (o) => DropdownMenuItem(
+                          value: o,
+                          child: Text(
+                            _operatorLabels[o]!,
+                            style: const TextStyle(fontSize: AppTextSize.small),
+                          ),
+                        ),
+                      )
+                      .toList(),
+              onChanged:
+                  widget.readOnly
+                      ? null
+                      : (v) => setState(() => row.operator = v!),
             ),
           ),
 

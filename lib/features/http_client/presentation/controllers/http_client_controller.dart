@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:mockondo/core/interpolation.dart';
 import 'package:mockondo/features/http_client/data/models/http_client_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/v4.dart';
@@ -20,6 +21,9 @@ class HttpClientController extends GetxController {
 
   /// Index into [requests] of the currently open request.
   final selectedIndex = 0.obs;
+
+  /// 0 = HTTP, 1 = WebSocket. Persisted so tab survives page navigation.
+  final clientTab = 0.obs;
 
   /// `true` while a request is in flight.
   final isLoading = false.obs;
@@ -283,8 +287,12 @@ class HttpClientController extends GetxController {
     errorMessage.value = null;
 
     try {
+      // Helper: resolve all ${...} interpolation placeholders in a string.
+      final interp = Interpolation();
+      String ip(String s) => interp.excute(before: s, data: '');
+
       // Merge enabled query params into the URL.
-      var urlStr = req.url.trim();
+      var urlStr = ip(req.url.trim());
       final enabledParams =
           req.params.where((p) => p.enabled && p.key.isNotEmpty).toList();
       if (enabledParams.isNotEmpty) {
@@ -292,7 +300,7 @@ class HttpClientController extends GetxController {
         if (uri != null) {
           final queryParams = Map<String, String>.from(uri.queryParameters);
           for (final p in enabledParams) {
-            queryParams[p.key] = p.value;
+            queryParams[ip(p.key)] = ip(p.value);
           }
           urlStr = uri.replace(queryParameters: queryParams).toString();
         }
@@ -304,7 +312,7 @@ class HttpClientController extends GetxController {
       final headers = <String, String>{};
       for (final h in req.headers) {
         if (h.enabled && h.key.isNotEmpty) {
-          headers[h.key] = h.value;
+          headers[ip(h.key)] = ip(h.value);
         }
       }
 
@@ -312,53 +320,114 @@ class HttpClientController extends GetxController {
 
       // Build the request body.
       String? body;
-      if (req.bodyType == RequestBodyType.formData) {
-        final enabledFields =
+      bool usedMultipart = false;
+
+      if (req.bodyType == RequestBodyType.binary) {
+        // Send raw file bytes as the request body (no interpolation on file paths).
+        final filePath = req.body.trim();
+        if (filePath.isNotEmpty) {
+          final fileBytes = await File(filePath).readAsBytes();
+          final request = http.Request(req.method, uri);
+          request.headers.addAll(headers);
+          if (!request.headers.containsKey('Content-Type')) {
+            request.headers['Content-Type'] = 'application/octet-stream';
+          }
+          request.bodyBytes = fileBytes;
+          final streamed = await request.send();
+          final httpResponse = await http.Response.fromStream(streamed);
+          stopwatch.stop();
+          response.value = HttpResponseResult(
+            statusCode: httpResponse.statusCode,
+            body: httpResponse.body,
+            headers: httpResponse.headers,
+            durationMs: stopwatch.elapsedMilliseconds,
+          );
+          usedMultipart = true; // marks "response already set"
+        }
+      } else if (req.bodyType == RequestBodyType.formData) {
+        final enabled =
             req.formData.where((f) => f.enabled && f.key.isNotEmpty).toList();
-        if (enabledFields.isNotEmpty) {
-          body = enabledFields
+        final hasFile =
+            enabled.any((f) => f.type == RequestFormFieldType.file);
+
+        if (hasFile) {
+          // multipart/form-data
+          usedMultipart = true;
+          final multipart = http.MultipartRequest(req.method, uri);
+          headers.remove('Content-Type'); // let http set boundary
+          multipart.headers.addAll(headers);
+          for (final f in enabled) {
+            if (f.type == RequestFormFieldType.file &&
+                f.filePath != null &&
+                f.filePath!.isNotEmpty) {
+              multipart.files.add(
+                await http.MultipartFile.fromPath(ip(f.key), f.filePath!,
+                    filename: f.displayFileName),
+              );
+            } else {
+              multipart.fields[ip(f.key)] = ip(f.value);
+            }
+          }
+          final streamed = await multipart.send();
+          final httpResponse = await http.Response.fromStream(streamed);
+          stopwatch.stop();
+          response.value = HttpResponseResult(
+            statusCode: httpResponse.statusCode,
+            body: httpResponse.body,
+            headers: httpResponse.headers,
+            durationMs: stopwatch.elapsedMilliseconds,
+          );
+        } else if (enabled.isNotEmpty) {
+          // application/x-www-form-urlencoded (text fields only)
+          body = enabled
               .map((f) =>
-                  '${Uri.encodeQueryComponent(f.key)}=${Uri.encodeQueryComponent(f.value)}')
+                  '${Uri.encodeQueryComponent(ip(f.key))}=${Uri.encodeQueryComponent(ip(f.value))}')
               .join('&');
           headers['Content-Type'] = 'application/x-www-form-urlencoded';
         }
       } else {
-        body = req.body.isEmpty ? null : req.body;
+        body = req.body.isEmpty ? null : ip(req.body);
       }
 
-      http.Response httpResponse;
+      if (usedMultipart) {
+        // Response already set inside the multipart branch above.
+      } else {
+        http.Response httpResponse;
 
-      switch (req.method) {
-        case 'GET':
-          httpResponse = await http.get(uri, headers: headers);
-          break;
-        case 'POST':
-          httpResponse = await http.post(uri, headers: headers, body: body);
-          break;
-        case 'PUT':
-          httpResponse = await http.put(uri, headers: headers, body: body);
-          break;
-        case 'PATCH':
-          httpResponse = await http.patch(uri, headers: headers, body: body);
-          break;
-        case 'DELETE':
-          httpResponse = await http.delete(uri, headers: headers, body: body);
-          break;
-        case 'HEAD':
-          httpResponse = await http.head(uri, headers: headers);
-          break;
-        default:
-          httpResponse = await http.get(uri, headers: headers);
+        switch (req.method) {
+          case 'GET':
+            httpResponse = await http.get(uri, headers: headers);
+            break;
+          case 'POST':
+            httpResponse = await http.post(uri, headers: headers, body: body);
+            break;
+          case 'PUT':
+            httpResponse = await http.put(uri, headers: headers, body: body);
+            break;
+          case 'PATCH':
+            httpResponse =
+                await http.patch(uri, headers: headers, body: body);
+            break;
+          case 'DELETE':
+            httpResponse =
+                await http.delete(uri, headers: headers, body: body);
+            break;
+          case 'HEAD':
+            httpResponse = await http.head(uri, headers: headers);
+            break;
+          default:
+            httpResponse = await http.get(uri, headers: headers);
+        }
+
+        stopwatch.stop();
+
+        response.value = HttpResponseResult(
+          statusCode: httpResponse.statusCode,
+          body: httpResponse.body,
+          headers: httpResponse.headers,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
       }
-
-      stopwatch.stop();
-
-      response.value = HttpResponseResult(
-        statusCode: httpResponse.statusCode,
-        body: httpResponse.body,
-        headers: httpResponse.headers,
-        durationMs: stopwatch.elapsedMilliseconds,
-      );
     } on SocketException catch (e) {
       errorMessage.value = 'Connection error: ${e.message}';
     } on http.ClientException catch (e) {

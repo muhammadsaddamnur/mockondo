@@ -5,6 +5,7 @@ import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/server.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/core/widgets/interpolation_textfield.dart';
@@ -407,9 +408,11 @@ class _ResponseWidgetState extends State<ResponseWidget> {
                 ),
               ),
               const SizedBox(width: AppSpacing.m),
-              ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(elevation: 0),
+              ButtonWidget(
+                onTap: () async {
+                  _save();
+                },
+                color: AppColors.secondaryD,
                 child: const Text(
                   'Save Changes',
                   style: TextStyle(fontSize: AppTextSize.body),

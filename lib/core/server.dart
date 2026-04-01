@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mockondo/core/interpolation.dart';
+
 import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:shelf/shelf.dart';
@@ -78,6 +80,9 @@ class MainServer {
   /// [WsMockModel.onConnectMessage] (if set) and then evaluates
   /// [WsMockModel.rules] against every incoming message.
   void addWsEndpoint(WsMockModel model) {
+    final wsPath = Interpolation()
+        .excute(before: model.endpoint, data: '')
+        .replaceAll('"', '');
     final handler = webSocketHandler((WebSocketChannel channel, String? protocol) {
       // Send the on-connect message if one is configured.
       final connectMsg = model.onConnectMessage;
@@ -150,7 +155,7 @@ class MainServer {
       );
     });
 
-    _wsHandlers.add((path: model.endpoint, handler: handler));
+    _wsHandlers.add((path: wsPath, handler: handler));
   }
 
   /// Remove all registered WebSocket endpoints.

@@ -1,10 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/curl_utils.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
+import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/core/widgets/interpolation_textfield.dart';
 import 'package:mockondo/features/http_client/data/models/http_client_model.dart';
 import 'package:mockondo/features/http_client/presentation/controllers/http_client_controller.dart';
@@ -20,31 +23,30 @@ class HttpClientPage extends StatefulWidget {
 }
 
 class _HttpClientPageState extends State<HttpClientPage> {
-  // 0 = HTTP, 1 = WebSocket
-  int _clientTab = 0;
-
   @override
   Widget build(BuildContext context) {
-    // If WebSocket tab is active, delegate entirely to WsClientPage.
-    if (_clientTab == 1) {
-      return Column(
-        children: [
-          _ClientTabBar(
-            selected: _clientTab,
-            onTap: (i) => setState(() => _clientTab = i),
-          ),
-          const Expanded(child: WsClientPage()),
-        ],
-      );
-    }
-
     final ctrl = Get.put(HttpClientController());
-    return Column(
+    return Obx(() {
+      final tab = ctrl.clientTab.value;
+      // If WebSocket tab is active, delegate entirely to WsClientPage.
+      if (tab == 1) {
+        return Column(
+          children: [
+            _ClientTabBar(
+              selected: tab,
+              onTap: (i) => ctrl.clientTab.value = i,
+            ),
+            const Expanded(child: WsClientPage()),
+          ],
+        );
+      }
+
+      return Column(
       children: [
         // ── HTTP / WebSocket tab switcher ─────────────────────────────
         _ClientTabBar(
-          selected: _clientTab,
-          onTap: (i) => setState(() => _clientTab = i),
+          selected: tab,
+          onTap: (i) => ctrl.clientTab.value = i,
         ),
         Expanded(
           child: Row(
@@ -102,7 +104,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
                         child: Icon(
                           Icons.add,
                           size: 16,
-                          color: AppColors.textD,
+                          color: AppColors.greenD
                         ),
                       ),
                     ),
@@ -162,6 +164,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
           ),  // Expanded
         ],
       );      // Column
+    });       // Obx
   }
 
   void _showImportCurlDialog(BuildContext context, HttpClientController ctrl) {
@@ -1068,13 +1071,9 @@ class _RequestEditorState extends State<_RequestEditor> {
                   // Send button
                   Obx(() => SizedBox(
                     height: 36,
-                    child: ElevatedButton(
-                      onPressed: ctrl.isLoading.value ? null : ctrl.sendRequest,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondaryD,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                      ),
+                    child: ButtonWidget(
+                      onTap: ctrl.isLoading.value ? null : ctrl.sendRequest,
+                      color: AppColors.secondaryD,
                       child: ctrl.isLoading.value
                           ? SizedBox(
                               width: 14,
@@ -1139,6 +1138,7 @@ class _RequestEditorState extends State<_RequestEditor> {
                                   : _BodyEditor(
                                       bodyType: req.bodyType,
                                       bodyCtrl: _bodyCtrl,
+                                      body: req.body,
                                       formData: req.formData,
                                       onBodyTypeChanged: (t) => _update(_req.copyWith(bodyType: t)),
                                       onBodyChanged: (v) => _update(_req.copyWith(body: v)),
@@ -1347,6 +1347,7 @@ class _BodyEditor extends StatelessWidget {
   const _BodyEditor({
     required this.bodyType,
     required this.bodyCtrl,
+    required this.body,
     required this.formData,
     required this.onBodyTypeChanged,
     required this.onBodyChanged,
@@ -1355,16 +1356,19 @@ class _BodyEditor extends StatelessWidget {
 
   final RequestBodyType bodyType;
   final CodeLineEditingController bodyCtrl;
-  final List<KeyValuePair> formData;
+  /// Current raw body string — used for binary file path display.
+  final String body;
+  final List<RequestFormField> formData;
   final ValueChanged<RequestBodyType> onBodyTypeChanged;
   final ValueChanged<String> onBodyChanged;
-  final ValueChanged<List<KeyValuePair>> onFormDataChanged;
+  final ValueChanged<List<RequestFormField>> onFormDataChanged;
 
   static const _labels = {
     RequestBodyType.none: 'None',
     RequestBodyType.json: 'JSON',
     RequestBodyType.text: 'Text',
     RequestBodyType.formData: 'Form Data',
+    RequestBodyType.binary: 'Binary',
   };
 
   @override
@@ -1393,7 +1397,9 @@ class _BodyEditor extends StatelessWidget {
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       _labels[t]!,
-                      style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.small),
+                      style: TextStyle(
+                          color: AppColors.textD,
+                          fontSize: AppTextSize.small),
                     ),
                   ],
                 ),
@@ -1406,15 +1412,15 @@ class _BodyEditor extends StatelessWidget {
         // ── Body content ───────────────────────────────────────────
         if (bodyType == RequestBodyType.formData)
           Expanded(
-            child: SingleChildScrollView(
-              child: KeyValueTable(
-                pairs: formData,
-                keyHint: 'Field',
-                valueHint: 'Value',
-                enableInterpolation: true,
-                onChanged: onFormDataChanged,
-              ),
+            child: _FormDataTable(
+              fields: formData,
+              onChanged: onFormDataChanged,
             ),
+          )
+        else if (bodyType == RequestBodyType.binary)
+          _BinaryFilePicker(
+            filePath: body,
+            onChanged: onBodyChanged,
           )
         else if (bodyType != RequestBodyType.none)
           Expanded(
@@ -1427,6 +1433,359 @@ class _BodyEditor extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ── Form Data Table (supports Text + File fields) ─────────────────────────────
+
+// ── Binary file picker ────────────────────────────────────────────────────────
+
+class _BinaryFilePicker extends StatelessWidget {
+  const _BinaryFilePicker({required this.filePath, required this.onChanged});
+
+  final String filePath;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFile = filePath.isNotEmpty;
+    final name = hasFile ? filePath.split('/').last : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.s),
+      child: Row(
+        children: [
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              backgroundColor: AppColors.surfaceD.withValues(alpha: 0.4),
+              foregroundColor: AppColors.textD,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.m, vertical: AppSpacing.s),
+            ),
+            icon: const Icon(Icons.attach_file, size: 14),
+            label: Text(
+              hasFile ? 'Change File' : 'Choose File',
+              style: const TextStyle(fontSize: AppTextSize.small),
+            ),
+            onPressed: () async {
+              final result = await FilePicker.platform.pickFiles();
+              if (result != null && result.files.single.path != null) {
+                onChanged(result.files.single.path!);
+              }
+            },
+          ),
+          const SizedBox(width: AppSpacing.m),
+          if (hasFile) ...[
+            Icon(Icons.insert_drive_file_outlined,
+                size: 14, color: AppColors.secondaryD),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                name!,
+                style: TextStyle(
+                    color: AppColors.textD, fontSize: AppTextSize.small),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.close,
+                  size: 14, color: AppColors.textD.withValues(alpha: 0.4)),
+              onPressed: () => onChanged(''),
+              tooltip: 'Clear',
+            ),
+          ] else
+            Text(
+              'No file selected',
+              style: TextStyle(
+                  color: AppColors.textD.withValues(alpha: 0.3),
+                  fontSize: AppTextSize.small),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Form data table ───────────────────────────────────────────────────────────
+
+class _FormDataTable extends StatefulWidget {
+  const _FormDataTable({required this.fields, required this.onChanged});
+
+  final List<RequestFormField> fields;
+  final ValueChanged<List<RequestFormField>> onChanged;
+
+  @override
+  State<_FormDataTable> createState() => _FormDataTableState();
+}
+
+class _FormDataTableState extends State<_FormDataTable> {
+  late List<RequestFormField> _fields;
+  final List<TextEditingController> _keyCtrls = [];
+  final List<TextEditingController> _valCtrls = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fields = List.from(widget.fields);
+    _rebuildControllers();
+  }
+
+  @override
+  void didUpdateWidget(_FormDataTable old) {
+    super.didUpdateWidget(old);
+    if (old.fields.length != widget.fields.length) {
+      _fields = List.from(widget.fields);
+      _rebuildControllers();
+    }
+  }
+
+  void _rebuildControllers() {
+    for (final c in _keyCtrls) { c.dispose(); }
+    for (final c in _valCtrls) { c.dispose(); }
+    _keyCtrls.clear();
+    _valCtrls.clear();
+    for (final f in _fields) {
+      _keyCtrls.add(TextEditingController(text: f.key));
+      _valCtrls.add(TextEditingController(text: f.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _keyCtrls) { c.dispose(); }
+    for (final c in _valCtrls) { c.dispose(); }
+    super.dispose();
+  }
+
+  void _notify() => widget.onChanged(List.from(_fields));
+
+  void _addField() {
+    setState(() {
+      _fields.add(RequestFormField());
+      _keyCtrls.add(TextEditingController());
+      _valCtrls.add(TextEditingController());
+    });
+    _notify();
+  }
+
+  void _remove(int i) {
+    _keyCtrls[i].dispose();
+    _valCtrls[i].dispose();
+    setState(() {
+      _fields.removeAt(i);
+      _keyCtrls.removeAt(i);
+      _valCtrls.removeAt(i);
+    });
+    _notify();
+  }
+
+  Future<void> _pickFile(int i) async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+    if (result == null || result.files.isEmpty) return;
+    final path = result.files.single.path;
+    if (path == null) return;
+    setState(() {
+      _fields[i] = _fields[i].copyWith(filePath: path, value: result.files.single.name);
+      _valCtrls[i].text = result.files.single.name;
+    });
+    _notify();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...List.generate(_fields.length, (i) {
+            final f = _fields[i];
+            final isFile = f.type == RequestFormFieldType.file;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Row(
+                children: [
+                  // Enabled checkbox — same pattern as KeyValueTable
+                  InkWell(
+                    onTap: () {
+                      setState(() => _fields[i] = f.copyWith(enabled: !f.enabled));
+                      _notify();
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xs),
+                      child: Icon(
+                        f.enabled
+                            ? Icons.check_box_rounded
+                            : Icons.check_box_outline_blank_rounded,
+                        size: 16,
+                        color: f.enabled
+                            ? AppColors.greenD
+                            : AppColors.textD.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+
+                  // Type toggle: Text / File
+                  Tooltip(
+                    message: isFile ? 'Switch to text' : 'Switch to file',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: () {
+                        setState(() {
+                          _fields[i] = f.copyWith(
+                            type: isFile
+                                ? RequestFormFieldType.text
+                                : RequestFormFieldType.file,
+                            filePath: isFile ? null : f.filePath,
+                          );
+                        });
+                        _notify();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isFile
+                              ? AppColors.secondaryD.withValues(alpha: 0.15)
+                              : AppColors.textD.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isFile
+                                ? AppColors.secondaryD.withValues(alpha: 0.4)
+                                : AppColors.textD.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Text(
+                          isFile ? 'File' : 'Text',
+                          style: TextStyle(
+                            fontSize: AppTextSize.small,
+                            color: isFile
+                                ? AppColors.secondaryD
+                                : AppColors.textD.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+
+                  // Key field
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 30,
+                      child: CustomTextField(
+                        controller: _keyCtrls[i],
+                        hintText: 'Field name',
+                        textSize: AppTextSize.small,
+                        onChanged: (v) {
+                          _fields[i] = f.copyWith(key: v);
+                          _notify();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+
+                  // Value field or file picker
+                  Expanded(
+                    flex: 3,
+                    child: isFile
+                        ? InkWell(
+                            onTap: () => _pickFile(i),
+                            borderRadius: BorderRadius.circular(5),
+                            child: Container(
+                              height: 30,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.m),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceD.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.attach_file_rounded,
+                                      size: 13,
+                                      color: AppColors.textD
+                                          .withValues(alpha: 0.45)),
+                                  const SizedBox(width: AppSpacing.xs),
+                                  Expanded(
+                                    child: Text(
+                                      f.filePath != null
+                                          ? f.displayFileName
+                                          : 'Choose file…',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: AppTextSize.small,
+                                        color: f.filePath != null
+                                            ? AppColors.textD
+                                            : AppColors.textD
+                                                .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : SizedBox(
+                            height: 30,
+                            child: CustomTextField(
+                              controller: _valCtrls[i],
+                              hintText: 'Value',
+                              textSize: AppTextSize.small,
+                              onChanged: (v) {
+                                _fields[i] = f.copyWith(value: v);
+                                _notify();
+                              },
+                            ),
+                          ),
+                  ),
+
+                  // Remove button — same pattern as KeyValueTable
+                  InkWell(
+                    onTap: () => _remove(i),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xs),
+                      child: Icon(
+                        Icons.close,
+                        size: 12,
+                        color: AppColors.textD.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          // Add button — same pattern as KeyValueTable
+          InkWell(
+            onTap: _addField,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xs,
+                vertical: AppSpacing.xs,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: 13, color: AppColors.greenD),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Add',
+                    style: TextStyle(
+                        color: AppColors.greenD, fontSize: AppTextSize.small),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

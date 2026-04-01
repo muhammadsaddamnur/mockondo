@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:get/get.dart';
+import 'package:mockondo/core/interpolation.dart';
 import 'package:mockondo/features/http_client/data/models/ws_client_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/v4.dart';
@@ -8,7 +9,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// GetX controller for the WebSocket client feature.
 ///
-/// Manages saved [WsClientItem]s, the active connection, and the message log.
+/// Each [WsClientItem] can have its own independent connection — switching
+/// between items does NOT disconnect the active one.
 class WsClientController extends GetxController {
   /// All saved WebSocket connections.
   final items = <WsClientItem>[].obs;
@@ -16,16 +18,24 @@ class WsClientController extends GetxController {
   /// Index of the currently selected connection in [items].
   final selectedIndex = 0.obs;
 
-  /// `true` while the WebSocket connection is open.
+  /// `true` while the SELECTED connection is open.
   final connected = false.obs;
 
-  /// Conversation log for the active connection.
+  /// Conversation log for the SELECTED connection.
   final messages = <WsMessage>[].obs;
 
-  /// Error message from the last failed connect attempt.
+  /// Error message from the last failed connect attempt (selected item).
   final errorMessage = RxnString();
 
-  WebSocketChannel? _channel;
+  /// Incremented whenever any connection opens or closes — lets the sidebar
+  /// dots react without subscribing to every individual channel.
+  final connVersion = 0.obs;
+
+  // Per-connection channels (keyed by WsClientItem.id)
+  final _channels = <String, WebSocketChannel>{};
+
+  // Per-connection message cache (keyed by WsClientItem.id)
+  final _perMessages = <String, List<WsMessage>>{};
 
   @override
   void onInit() {
@@ -35,7 +45,10 @@ class WsClientController extends GetxController {
 
   @override
   void onClose() {
-    _channel?.sink.close();
+    for (final ch in _channels.values) {
+      ch.sink.close();
+    }
+    _channels.clear();
     super.onClose();
   }
 
@@ -44,40 +57,83 @@ class WsClientController extends GetxController {
   WsClientItem? get selected =>
       items.isEmpty ? null : items[selectedIndex.value];
 
+  /// Returns whether [id] has an active connection.
+  bool isItemConnected(String id) => _channels.containsKey(id);
+
+  /// Switches the selected item WITHOUT disconnecting the current one.
   void selectItem(int index) {
-    if (connected.value) disconnect();
+    // Save current messages to cache before switching
+    final currentId = selected?.id;
+    if (currentId != null) {
+      _perMessages[currentId] = List.from(messages);
+    }
+
     selectedIndex.value = index;
-    messages.clear();
     errorMessage.value = null;
+
+    // Restore state for newly selected item
+    final newId = selected?.id;
+    if (newId != null) {
+      messages.value = List.from(_perMessages[newId] ?? []);
+      connected.value = _channels.containsKey(newId);
+    } else {
+      messages.clear();
+      connected.value = false;
+    }
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────────
 
   void addItem() {
+    // Save current messages before switching
+    final currentId = selected?.id;
+    if (currentId != null) {
+      _perMessages[currentId] = List.from(messages);
+    }
+
     items.add(WsClientItem(id: UuidV4().generate()));
     selectedIndex.value = items.length - 1;
     messages.clear();
+    connected.value = false;
     errorMessage.value = null;
     _save();
   }
 
   void deleteItem(int index) {
-    if (connected.value && selectedIndex.value == index) disconnect();
+    final item = items[index];
+
+    // Disconnect and clean up that item's resources
+    _channels[item.id]?.sink.close();
+    _channels.remove(item.id);
+    _perMessages.remove(item.id);
+    connVersion.value++;
+
     items.removeAt(index);
+
     if (items.isEmpty) {
       selectedIndex.value = 0;
-    } else if (selectedIndex.value >= items.length) {
-      selectedIndex.value = items.length - 1;
+      messages.clear();
+      connected.value = false;
+    } else {
+      if (selectedIndex.value >= items.length) {
+        selectedIndex.value = items.length - 1;
+      }
+      final newId = selected?.id;
+      if (newId != null) {
+        messages.value = List.from(_perMessages[newId] ?? []);
+        connected.value = _channels.containsKey(newId);
+      }
     }
     _save();
   }
 
   // ── Connection lifecycle ─────────────────────────────────────────────────────
 
-  /// Connects to [selected]'s URL and starts listening for messages.
+  /// Connects the currently selected item.
   Future<void> connect() async {
     final item = selected;
     if (item == null) return;
+    final id = item.id;
 
     final urlStr = item.url.trim();
     if (urlStr.isEmpty) {
@@ -86,78 +142,104 @@ class WsClientController extends GetxController {
     }
 
     final uri = Uri.tryParse(urlStr);
-    if (uri == null || (!uri.scheme.startsWith('ws'))) {
+    if (uri == null || !uri.scheme.startsWith('ws')) {
       errorMessage.value = 'URL must start with ws:// or wss://';
       return;
     }
 
     errorMessage.value = null;
-    messages.clear();
+
+    // Clear previous messages for this connection (fresh connect)
+    _perMessages[id] = [];
+    if (selected?.id == id) messages.clear();
 
     try {
-      // Build headers map from enabled key-value pairs.
       final headers = <String, String>{};
       for (final h in item.headers) {
         if (h.enabled && h.key.isNotEmpty) headers[h.key] = h.value;
       }
 
-      _channel = WebSocketChannel.connect(uri, protocols: const []);
-      await _channel!.ready;
+      final channel = WebSocketChannel.connect(uri, protocols: const []);
+      await channel.ready;
 
-      connected.value = true;
-      _appendMessage(WsMessage(
+      _channels[id] = channel;
+      connVersion.value++;
+
+      if (selected?.id == id) connected.value = true;
+
+      _addMessage(id, WsMessage(
         text: '✅ Connected to $urlStr',
         isSent: false,
         time: DateTime.now(),
       ));
 
-      _channel!.stream.listen(
+      channel.stream.listen(
         (data) {
-          _appendMessage(WsMessage(
+          _addMessage(id, WsMessage(
             text: data.toString(),
             isSent: false,
             time: DateTime.now(),
           ));
         },
         onDone: () {
-          connected.value = false;
-          _appendMessage(WsMessage(
+          _channels.remove(id);
+          connVersion.value++;
+          _addMessage(id, WsMessage(
             text: '🔌 Disconnected',
             isSent: false,
             time: DateTime.now(),
           ));
+          if (selected?.id == id) connected.value = false;
         },
         onError: (e) {
-          connected.value = false;
-          _appendMessage(WsMessage(
+          _channels.remove(id);
+          connVersion.value++;
+          _addMessage(id, WsMessage(
             text: '❌ Error: $e',
             isSent: false,
             time: DateTime.now(),
           ));
+          if (selected?.id == id) connected.value = false;
         },
       );
     } catch (e) {
-      connected.value = false;
-      errorMessage.value = e.toString();
+      _channels.remove(id);
+      connVersion.value++;
+      if (selected?.id == id) {
+        connected.value = false;
+        errorMessage.value = e.toString();
+      }
     }
   }
 
-  /// Closes the active WebSocket connection.
+  /// Disconnects the currently selected item.
   void disconnect() {
-    _channel?.sink.close();
-    _channel = null;
+    final id = selected?.id;
+    if (id == null) return;
+    _channels[id]?.sink.close();
+    _channels.remove(id);
+    connVersion.value++;
     connected.value = false;
   }
 
-  /// Sends [text] over the active connection.
+  /// Sends [text] over the currently selected connection.
+  ///
+  /// All `${...}` interpolation placeholders are resolved before sending.
   void send(String text) {
-    if (!connected.value || _channel == null || text.isEmpty) return;
-    _channel!.sink.add(text);
-    _appendMessage(WsMessage(text: text, isSent: true, time: DateTime.now()));
+    final id = selected?.id;
+    if (id == null || text.isEmpty) return;
+    final channel = _channels[id];
+    if (channel == null) return;
+    final resolved = Interpolation().excute(before: text, data: '');
+    channel.sink.add(resolved);
+    _addMessage(id, WsMessage(text: resolved, isSent: true, time: DateTime.now()));
   }
 
-  void _appendMessage(WsMessage msg) {
-    messages.add(msg);
+  /// Adds [msg] to the per-connection cache and, if [id] is currently
+  /// selected, also appends it to the reactive [messages] list.
+  void _addMessage(String id, WsMessage msg) {
+    _perMessages.putIfAbsent(id, () => []).add(msg);
+    if (selected?.id == id) messages.add(msg);
   }
 
   // ── Persistence ─────────────────────────────────────────────────────────────

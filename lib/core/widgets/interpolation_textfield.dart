@@ -18,6 +18,7 @@ class InterpolationTextField extends StatefulWidget {
     this.hintText,
     this.textSize = 12,
     this.onChanged,
+    this.onSubmitted,
     this.readOnly = false,
   });
 
@@ -25,6 +26,7 @@ class InterpolationTextField extends StatefulWidget {
   final String? hintText;
   final double textSize;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final bool readOnly;
 
   @override
@@ -169,10 +171,12 @@ class _InterpolationTextFieldState extends State<InterpolationTextField> {
       style: TextStyle(fontSize: widget.textSize, color: AppColors.textD),
       cursorHeight: widget.textSize,
       onChanged: widget.onChanged,
-      onSubmitted: (_) {
+      onSubmitted: (v) {
         if (_overlay != null && _suggestions.isNotEmpty) {
           final idx = _hoverIndex.clamp(0, _suggestions.length - 1);
           _accept(_suggestions[idx]);
+        } else {
+          widget.onSubmitted?.call(v);
         }
       },
       decoration: InputDecoration(

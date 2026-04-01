@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
 import 'package:mockondo/features/home/presentation/widgets/rules_dialog_widget.dart';
 
@@ -87,11 +88,10 @@ class _RulesWidgetState extends State<RulesWidget> {
               ),
             ),
             if (!widget.readOnly)
-              ElevatedButton.icon(
-                onPressed: () => _openEditor(),
-                style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text(
+              ButtonWidget(
+                onTap: () async => _openEditor(),
+                color: AppColors.secondaryD,
+                child: const Text(
                   'Add Rule',
                   style: TextStyle(fontSize: AppTextSize.body),
                 ),

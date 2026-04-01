@@ -72,14 +72,14 @@ class MyApp extends StatelessWidget {
             label: 'File',
             menus: [
               PlatformMenuItem(
-                label: 'Export…',
+                label: 'Export Project……',
                 onSelected: () async {
                   final ctx = Get.context;
                   if (ctx != null) await ExportImportService.export(ctx);
                 },
               ),
               PlatformMenuItem(
-                label: 'Import…',
+                label: 'Import Project…',
                 onSelected: () async {
                   final ctx = Get.context;
                   if (ctx != null) await ExportImportService.import(ctx);

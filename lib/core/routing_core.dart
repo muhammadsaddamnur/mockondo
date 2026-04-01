@@ -19,6 +19,14 @@ class RoutingCore {
   /// Returns a [shelf_router.Router] wired to the endpoint defined by
   /// [mockModel] using the given HTTP [method].
   shelf_router.Router getRouter(String method, MockModel mockModel) {
+    // Resolve interpolation in the endpoint path at registration time so that
+    // placeholders like ${customdata.cities.jakarta} become literal path segments.
+    // Resolve interpolation in the path, then strip any JSON-encoded string
+    // quotes (e.g. /"wkwk" → /wkwk) since URL paths never contain quotes.
+    final endpoint = Interpolation()
+        .excute(before: mockModel.endpoint, data: '')
+        .replaceAll('"', '');
+
     // Partition rules into pagination (at most one) and response overrides.
     final rules = mockModel.rules ?? [];
 
@@ -88,23 +96,23 @@ class RoutingCore {
     switch (method) {
       case 'GET':
         return shelf_router.Router()
-          ..get(mockModel.endpoint, (shelf.Request r) => handleRequest(r));
+          ..get(endpoint, (shelf.Request r) => handleRequest(r));
       case 'POST':
         return shelf_router.Router()
-          ..post(mockModel.endpoint, (shelf.Request r) => handleRequest(r));
+          ..post(endpoint, (shelf.Request r) => handleRequest(r));
       case 'PUT':
         return shelf_router.Router()
-          ..put(mockModel.endpoint, (shelf.Request r) => handleRequest(r));
+          ..put(endpoint, (shelf.Request r) => handleRequest(r));
       case 'PATCH':
         return shelf_router.Router()
-          ..patch(mockModel.endpoint, (shelf.Request r) => handleRequest(r));
+          ..patch(endpoint, (shelf.Request r) => handleRequest(r));
       case 'DELETE':
         return shelf_router.Router()
-          ..delete(mockModel.endpoint, (shelf.Request r) => handleRequest(r));
+          ..delete(endpoint, (shelf.Request r) => handleRequest(r));
       default:
         // Fallback: treat unknown methods as a plain GET that returns a static message.
         return shelf_router.Router()
-          ..get(mockModel.endpoint, (shelf.Request request) async {
+          ..get(endpoint, (shelf.Request request) async {
             await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
             return shelf.Response.ok('This is custom route');
           });

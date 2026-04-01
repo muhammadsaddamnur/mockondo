@@ -48,7 +48,7 @@ class CurlUtils {
       final headers = <KeyValuePair>[];
       var body = '';
       var bodyType = RequestBodyType.none;
-      final formData = <KeyValuePair>[];
+      final formData = <RequestFormField>[];
 
       int i = 0;
       while (i < tokens.length) {
@@ -83,16 +83,30 @@ class CurlUtils {
               bodyType = RequestBodyType.text;
             }
           }
+        } else if (t == '-T' || t == '--upload-file') {
+          i++;
+          if (i < tokens.length) {
+            final path = tokens[i];
+            final fileName = path.split('/').last;
+            formData.add(RequestFormField(
+              key: 'file',
+              value: fileName,
+              type: RequestFormFieldType.file,
+              filePath: path != '/path/to/file' ? path : null,
+            ));
+            bodyType = RequestBodyType.formData;
+            method ??= 'PUT';
+          }
         } else if (t == '-F' || t == '--form' || t == '--form-string') {
           i++;
           if (i < tokens.length) {
             final eqIdx = tokens[i].indexOf('=');
             formData.add(eqIdx > 0
-                ? KeyValuePair(
+                ? RequestFormField(
                     key: tokens[i].substring(0, eqIdx),
                     value: tokens[i].substring(eqIdx + 1),
                   )
-                : KeyValuePair(key: tokens[i]));
+                : RequestFormField(key: tokens[i]));
             bodyType = RequestBodyType.formData;
           }
         } else if (t.startsWith('--url=')) {
