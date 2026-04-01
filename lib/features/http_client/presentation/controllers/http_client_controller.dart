@@ -289,7 +289,7 @@ class HttpClientController extends GetxController {
     try {
       // Helper: resolve all ${...} interpolation placeholders in a string.
       final interp = Interpolation();
-      String ip(String s) => interp.excute(before: s, data: '');
+      String ip(String s) => interp.excute(before: s, data: '').replaceAll('"', '');
 
       // Merge enabled query params into the URL.
       var urlStr = ip(req.url.trim());

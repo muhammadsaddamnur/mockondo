@@ -179,20 +179,7 @@ class MainServer {
 
     cascade = cascade.add(_fallbackHandler);
 
-    return Pipeline()
-        .addMiddleware(
-          logRequests(
-            logger: (message, isError) {
-              logService.record(
-                LogModel(
-                  status: isError ? Status.error : Status.request,
-                  log: message,
-                ),
-              );
-            },
-          ),
-        )
-        .addHandler(cascade.handler);
+    return Pipeline().addHandler(cascade.handler);
   }
 
   /// Fallback handler: proxy request ke API eksternal.
@@ -277,10 +264,9 @@ class MainServer {
     logService.record(
       LogModel(
         status: Status.request,
-        log: '✅ Server running on http://$localIp:${server?.port}',
+        log: '✅ Server running',
       ),
     );
-    print('✅ Server running on http://$localIp:${server?.port}');
   }
 
   stop() {

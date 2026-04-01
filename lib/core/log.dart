@@ -28,19 +28,45 @@ class LogModel {
   /// Severity level of this entry.
   final Status status;
 
-  /// Raw log message (e.g. "GET /api/users 200 12ms" or a server event).
+  /// Short summary line (used for system/WS messages and as the row title).
   final String log;
 
   /// When the entry was recorded. Defaults to [DateTime.now()].
   final DateTime timestamp;
 
-  LogModel({required this.status, required this.log, DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now();
+  // ── Structured HTTP fields (null for system/WS log entries) ──────────────
+
+  final String? method;
+  final String? path;
+  final Map<String, String>? requestHeaders;
+  final String? requestBody;
+  final int? statusCode;
+  final Map<String, String>? responseHeaders;
+  final String? responseBody;
+
+  /// Duration of the request in milliseconds.
+  final int? durationMs;
+
+  LogModel({
+    required this.status,
+    required this.log,
+    DateTime? timestamp,
+    this.method,
+    this.path,
+    this.requestHeaders,
+    this.requestBody,
+    this.statusCode,
+    this.responseHeaders,
+    this.responseBody,
+    this.durationMs,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  bool get isHttpEntry => method != null;
 }
 
 /// Severity level of a log entry.
 enum Status {
-  /// A normal incoming HTTP request.
+  /// A normal incoming HTTP request or WS event.
   request,
 
   /// A server error or misconfiguration.

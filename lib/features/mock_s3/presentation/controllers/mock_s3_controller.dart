@@ -42,10 +42,6 @@ class MockS3Controller extends GetxController {
     final ip = await NetworkInfo().getWifiIP();
     if (ip != null && ip.isNotEmpty) {
       ipAddress.value = ip;
-      // Only update config host if it's still the factory default
-      if (config.value.host == '127.0.0.1') {
-        config.value = config.value.copyWith(host: ip);
-      }
     }
   }
 
@@ -325,6 +321,7 @@ class MockS3Controller extends GetxController {
     required String key,
     required String operation,
     required int expirySeconds,
+    required String uri,
   }) {
     final token = UuidV4().generate().replaceAll('-', '');
     final expiresAt = DateTime.now().add(Duration(seconds: expirySeconds));
@@ -335,7 +332,7 @@ class MockS3Controller extends GetxController {
     final dateTime =
         '${date}T${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}Z';
 
-    final url = 'http://${c.host}:${c.port}/$bucket/$key'
+    final url = '$uri/$bucket/$key'
         '?X-Amz-Algorithm=AWS4-HMAC-SHA256'
         '&X-Amz-Credential=${Uri.encodeComponent('${c.accessKey}/$date/${c.region}/s3/aws4_request')}'
         '&X-Amz-Date=$dateTime'

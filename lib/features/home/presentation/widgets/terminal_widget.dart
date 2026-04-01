@@ -1,17 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/log.dart';
 
 /// A terminal-style log viewer that displays incoming HTTP requests for the
 /// active mock server project.
-///
-/// Listens to [logNotifier] and auto-scrolls to the latest entry whenever the
-/// list grows. Supports [didUpdateWidget] so the widget correctly re-subscribes
-/// when the parent swaps to a different project's log notifier.
 class TerminalWidget extends StatefulWidget {
   const TerminalWidget({super.key, required this.logNotifier});
 
-  /// The reactive log list owned by the active project's [LogService].
   final ValueNotifier<List<LogModel>> logNotifier;
 
   @override
@@ -30,8 +28,6 @@ class _TerminalWidgetState extends State<TerminalWidget> {
   @override
   void didUpdateWidget(TerminalWidget old) {
     super.didUpdateWidget(old);
-    // Re-subscribe when the parent provides a different notifier (e.g. after
-    // the user switches to another project).
     if (old.logNotifier != widget.logNotifier) {
       old.logNotifier.removeListener(_onLogsChanged);
       widget.logNotifier.addListener(_onLogsChanged);
@@ -45,8 +41,6 @@ class _TerminalWidgetState extends State<TerminalWidget> {
     super.dispose();
   }
 
-  /// Scrolls to the bottom after the current frame so the ListView has already
-  /// laid out the new item.
   void _onLogsChanged() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
@@ -81,9 +75,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
                     )
                   : ListView.builder(
                       controller: _scrollCtrl,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.xs,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                       itemCount: logs.length,
                       itemBuilder: (_, i) => _LogRow(log: logs[i]),
                     ),
@@ -95,10 +87,8 @@ class _TerminalWidgetState extends State<TerminalWidget> {
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Header ─────────────────────────────────────────────────────────────────────
 
-/// Thin top bar with a green indicator dot, the "TERMINAL" label, entry count,
-/// and a clear button.
 class _Header extends StatelessWidget {
   const _Header({required this.logs});
   final List<LogModel> logs;
@@ -116,32 +106,23 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left: status dot + label
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppColors.greenD,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.s),
-              Text(
-                'TERMINAL',
-                style: TextStyle(
-                  color: AppColors.textD.withValues(alpha: 0.5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: AppColors.greenD, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: AppSpacing.s),
+          Text(
+            'TERMINAL',
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.5),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              fontFamily: 'monospace',
+            ),
           ),
           const Spacer(),
-          // Right: entry count + clear button (only when there are entries)
           if (logs.isNotEmpty) ...[
             Text(
               '${logs.length} entries',
@@ -171,27 +152,22 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Single log row ─────────────────────────────────────────────────────────────
+// ── Log row (routes to system or HTTP) ────────────────────────────────────────
 
-/// Routes a [LogModel] to either [_SystemRow] or [_HttpRow] based on whether
-/// [_ParsedLog] identifies it as a system event or an HTTP request.
 class _LogRow extends StatelessWidget {
   const _LogRow({required this.log});
   final LogModel log;
 
   @override
   Widget build(BuildContext context) {
-    final p = _ParsedLog.from(log);
     final ts = _formatTime(log.timestamp);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.m,
-        vertical: 1,
-      ),
-      child: p.isSystem
-          ? _SystemRow(timestamp: ts, message: p.raw, isError: p.isError)
-          : _HttpRow(parsed: p, timestamp: ts),
+    if (log.isHttpEntry) {
+      return _HttpRow(log: log, timestamp: ts);
+    }
+    return _SystemRow(
+      timestamp: ts,
+      message: log.log,
+      isError: log.status == Status.error,
     );
   }
 
@@ -204,10 +180,8 @@ class _LogRow extends StatelessWidget {
   }
 }
 
-// ── System message row ─────────────────────────────────────────────────────────
+// ── System row ─────────────────────────────────────────────────────────────────
 
-/// A plain one-line row for server start/stop or error messages.
-/// Green for info, red for errors.
 class _SystemRow extends StatelessWidget {
   const _SystemRow({
     required this.timestamp,
@@ -220,99 +194,192 @@ class _SystemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _ts(timestamp),
-        const SizedBox(width: AppSpacing.m),
-        Expanded(
-          child: SelectableText(
-            message,
-            style: TextStyle(
-              color: isError
-                  ? AppColors.red.withValues(alpha: 0.85)
-                  : AppColors.greenD.withValues(alpha: 0.85),
-              fontSize: AppTextSize.small,
-              fontFamily: 'monospace',
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: 1),
+      child: Row(
+        children: [
+          _Ts(timestamp),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: SelectableText(
+              message,
+              style: TextStyle(
+                color: isError
+                    ? AppColors.red.withValues(alpha: 0.85)
+                    : AppColors.greenD.withValues(alpha: 0.85),
+                fontSize: AppTextSize.small,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// ── HTTP request row ───────────────────────────────────────────────────────────
+// ── HTTP row (expandable) ─────────────────────────────────────────────────────
 
-/// A structured row showing timestamp, colour-coded method badge, path,
-/// status code badge, and response duration for a parsed HTTP log entry.
-class _HttpRow extends StatelessWidget {
-  const _HttpRow({required this.parsed, required this.timestamp});
-  final _ParsedLog parsed;
+class _HttpRow extends StatefulWidget {
+  const _HttpRow({required this.log, required this.timestamp});
+  final LogModel log;
   final String timestamp;
 
   @override
+  State<_HttpRow> createState() => _HttpRowState();
+}
+
+class _HttpRowState extends State<_HttpRow> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(parsed.statusCode);
-    return Row(
+    final log = widget.log;
+    final statusColor = _statusColor(log.statusCode);
+    final methodColor = _methodColor(log.method);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ts(timestamp),
-        const SizedBox(width: AppSpacing.m),
-        // Fixed-width method badge
-        SizedBox(
-          width: 52,
-          child: Text(
-            parsed.method ?? '???',
-            style: TextStyle(
-              color: _methodColor(parsed.method),
-              fontSize: AppTextSize.small,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
+        // ── Summary line ────────────────────────────────────────────
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.m, vertical: 2),
+            child: Row(
+              children: [
+                _Ts(widget.timestamp),
+                const SizedBox(width: AppSpacing.m),
+                // Expand indicator
+                Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_right_rounded,
+                  size: 12,
+                  color: AppColors.textD.withValues(alpha: 0.3),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                // Method badge
+                SizedBox(
+                  width: 52,
+                  child: Text(
+                    log.method ?? '???',
+                    style: TextStyle(
+                      color: methodColor,
+                      fontSize: AppTextSize.small,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.s),
+                // Path
+                Expanded(
+                  child: SelectableText(
+                    log.path ?? '',
+                    style: TextStyle(
+                      color: AppColors.textD.withValues(alpha: 0.85),
+                      fontSize: AppTextSize.small,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.m),
+                // Status badge
+                if (log.statusCode != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      '${log.statusCode}',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: AppTextSize.small,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: AppSpacing.m),
+                // Duration
+                if (log.durationMs != null)
+                  SizedBox(
+                    width: 56,
+                    child: Text(
+                      '${log.durationMs}ms',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: AppColors.textD.withValues(alpha: 0.35),
+                        fontSize: AppTextSize.small,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: AppSpacing.s),
-        // Path takes remaining horizontal space
-        Expanded(
-          child: SelectableText(
-            parsed.path ?? parsed.raw,
-            style: TextStyle(
-              color: AppColors.textD.withValues(alpha: 0.85),
-              fontSize: AppTextSize.small,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.m),
-        // Status code badge with tinted background
-        if (parsed.statusCode != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              '${parsed.statusCode}',
-              style: TextStyle(
-                color: statusColor,
-                fontSize: AppTextSize.small,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+
+        // ── Expanded detail panel ────────────────────────────────────
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.only(
+                left: AppSpacing.xl, right: AppSpacing.m, bottom: AppSpacing.s, top: AppSpacing.s),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surfaceD.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: AppColors.textD.withValues(alpha: 0.08)),
               ),
-            ),
-          ),
-        const SizedBox(width: AppSpacing.m),
-        // Duration (right-aligned, fixed width)
-        if (parsed.duration != null)
-          SizedBox(
-            width: 56,
-            child: Text(
-              parsed.duration!,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: AppColors.textD.withValues(alpha: 0.35),
-                fontSize: AppTextSize.small,
-                fontFamily: 'monospace',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // REQUEST section
+                  _SectionHeader(label: 'REQUEST'),
+                  if (log.requestHeaders != null &&
+                      log.requestHeaders!.isNotEmpty)
+                    _DetailBlock(
+                      label: 'Headers',
+                      content: log.requestHeaders!.entries
+                          .map((e) => '${e.key}: ${e.value}')
+                          .join('\n'),
+                    ),
+                  if (log.requestBody != null && log.requestBody!.isNotEmpty)
+                    _DetailBlock(
+                      label: 'Body',
+                      content: _prettyJson(log.requestBody!),
+                    ),
+                  if ((log.requestHeaders == null ||
+                          log.requestHeaders!.isEmpty) &&
+                      (log.requestBody == null || log.requestBody!.isEmpty))
+                    _EmptyHint(text: 'No request body or headers'),
+
+                  // RESPONSE section
+                  _SectionHeader(label: 'RESPONSE'),
+                  if (log.responseHeaders != null &&
+                      log.responseHeaders!.isNotEmpty)
+                    _DetailBlock(
+                      label: 'Headers',
+                      content: log.responseHeaders!.entries
+                          .map((e) => '${e.key}: ${e.value}')
+                          .join('\n'),
+                    ),
+                  if (log.responseBody != null && log.responseBody!.isNotEmpty)
+                    _DetailBlock(
+                      label: 'Body',
+                      content: _prettyJson(log.responseBody!),
+                    ),
+                  if ((log.responseHeaders == null ||
+                          log.responseHeaders!.isEmpty) &&
+                      (log.responseBody == null || log.responseBody!.isEmpty))
+                    _EmptyHint(text: 'No response body'),
+                ],
               ),
             ),
           ),
@@ -320,7 +387,15 @@ class _HttpRow extends StatelessWidget {
     );
   }
 
-  /// Colour per HTTP method — mirrors VS Code / Postman conventions.
+  static String _prettyJson(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      return const JsonEncoder.withIndent('  ').convert(decoded);
+    } catch (_) {
+      return raw;
+    }
+  }
+
   static Color _methodColor(String? method) {
     switch (method) {
       case 'GET':    return const Color(0xFF61AFEF);
@@ -333,18 +408,134 @@ class _HttpRow extends StatelessWidget {
     }
   }
 
-  /// Colour per HTTP status code family.
   static Color _statusColor(int? code) {
     if (code == null) return const Color(0xFFABB2BF);
-    if (code < 300) return const Color(0xFF98C379); // 2xx → green
-    if (code < 400) return const Color(0xFF61AFEF); // 3xx → blue
-    if (code < 500) return const Color(0xFFE5C07B); // 4xx → yellow
-    return const Color(0xFFE06C75);                  // 5xx → red
+    if (code < 300) return const Color(0xFF98C379);
+    if (code < 400) return const Color(0xFF61AFEF);
+    if (code < 500) return const Color(0xFFE5C07B);
+    return const Color(0xFFE06C75);
   }
 }
 
-/// Dim timestamp label shared by all row types.
-Widget _ts(String ts) => Text(
+// ── Detail sub-widgets ────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        border: Border(
+            bottom: BorderSide(color: AppColors.textD.withValues(alpha: 0.07))),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: AppColors.textD.withValues(alpha: 0.4),
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          fontFamily: 'monospace',
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailBlock extends StatelessWidget {
+  const _DetailBlock({required this.label, required this.content});
+  final String label;
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.m, AppSpacing.s, AppSpacing.m, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppColors.textD.withValues(alpha: 0.35),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () =>
+                    Clipboard.setData(ClipboardData(text: content)),
+                borderRadius: BorderRadius.circular(3),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 11,
+                    color: AppColors.textD.withValues(alpha: 0.25),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            content,
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.75),
+              fontSize: AppTextSize.small,
+              fontFamily: 'monospace',
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m, vertical: AppSpacing.s),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: AppColors.textD.withValues(alpha: 0.2),
+          fontSize: AppTextSize.small,
+          fontFamily: 'monospace',
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shared timestamp widget ───────────────────────────────────────────────────
+
+class _Ts extends StatelessWidget {
+  const _Ts(this.ts);
+  final String ts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
       ts,
       style: TextStyle(
         color: AppColors.textD.withValues(alpha: 0.25),
@@ -352,118 +543,5 @@ Widget _ts(String ts) => Text(
         fontFamily: 'monospace',
       ),
     );
-
-// ── Log parser ─────────────────────────────────────────────────────────────────
-
-/// Parses a raw [LogModel] message into structured fields.
-///
-/// Shelf's `logRequests` middleware emits lines in the form:
-/// ```
-/// GET "/api/users" 200 0:00:00.015261
-/// ```
-/// The regex extracts method, path, status code, and duration.
-/// System messages (server start/stop events) are detected by their prefix
-/// and routed to [_SystemRow] instead.
-class _ParsedLog {
-  const _ParsedLog({
-    this.method,
-    this.path,
-    this.statusCode,
-    this.duration,
-    required this.raw,
-    this.isError = false,
-    this.isSystem = false,
-  });
-
-  final String? method;
-
-  /// URL path only (host stripped), e.g. `/api/users?page=2`.
-  final String? path;
-
-  final int? statusCode;
-
-  /// Human-readable duration string (e.g. `"15ms"`, `"1.2s"`).
-  final String? duration;
-
-  /// The original raw log message.
-  final String raw;
-
-  final bool isError;
-
-  /// `true` for server lifecycle events rather than HTTP request logs.
-  final bool isSystem;
-
-  // Matches shelf's HTTP log format, optionally preceded by a timestamp.
-  static final _httpRe = RegExp(
-    r'(?:\d{4}-\d{2}-\d{2}T[\d:.]+Z?\s+)?'
-    r'(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+'
-    r'"?([^"\s]+)"?\s+'
-    r'(\d{3})\s+'
-    r'(\S+)',
-    caseSensitive: false,
-  );
-
-  factory _ParsedLog.from(LogModel log) {
-    final msg = log.log.trim();
-
-    // Detect system / lifecycle messages by their prefix or lack of spaces.
-    if (!msg.contains(' ') ||
-        msg.startsWith('✅') ||
-        msg.startsWith('❌') ||
-        msg.startsWith('Server')) {
-      return _ParsedLog(
-        raw: msg,
-        isSystem: true,
-        isError: log.status == Status.error,
-      );
-    }
-
-    final m = _httpRe.firstMatch(msg);
-    if (m != null) {
-      final rawPath = m.group(2) ?? '';
-      final path = _extractPath(rawPath);
-      return _ParsedLog(
-        method: m.group(1)!.toUpperCase(),
-        path: path,
-        statusCode: int.tryParse(m.group(3)!),
-        duration: _formatDuration(m.group(4)!),
-        raw: msg,
-        isError: log.status == Status.error,
-      );
-    }
-
-    // Unrecognised format — render as plain text (not a system message).
-    return _ParsedLog(raw: msg, isError: log.status == Status.error);
-  }
-
-  /// Strips the host from a full URL to show only the path + query string.
-  static String _extractPath(String url) {
-    try {
-      final uri = Uri.tryParse(url);
-      if (uri != null && uri.host.isNotEmpty) {
-        final q = uri.query.isEmpty ? '' : '?${uri.query}';
-        return '${uri.path}$q';
-      }
-    } catch (_) {}
-    return url;
-  }
-
-  /// Converts shelf's `Duration.toString()` format (`"0:00:00.015261"`) to a
-  /// compact human-readable string (`"15ms"` or `"1.2s"`).
-  /// Passes already-formatted strings (ending in `ms`/`s`) through unchanged.
-  static String _formatDuration(String raw) {
-    if (raw.endsWith('ms') || raw.endsWith('s')) return raw;
-    try {
-      final parts = raw.split(':');
-      if (parts.length == 3) {
-        final h = int.parse(parts[0]);
-        final min = int.parse(parts[1]);
-        final sec = double.parse(parts[2]);
-        final ms = ((h * 3600 + min * 60 + sec) * 1000).round();
-        if (ms < 1000) return '${ms}ms';
-        return '${(ms / 1000).toStringAsFixed(1)}s';
-      }
-    } catch (_) {}
-    return raw;
   }
 }

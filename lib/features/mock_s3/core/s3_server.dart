@@ -36,7 +36,9 @@ class S3MockServer {
   Future<void> start(String host, int port) async {
     final handler =
         const Pipeline().addMiddleware(_cors()).addHandler(_handle);
-    _server = await shelf_io.serve(handler, host, port);
+    // Bind to all interfaces so the server is reachable regardless of which
+    // network interface the configured host belongs to.
+    _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
   }
 
   Future<void> stop() async {

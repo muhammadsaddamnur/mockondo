@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:mockondo/core/generate_core.dart';
 import 'package:mockondo/core/interpolation.dart';
+import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/utils.dart';
 import 'package:shelf/shelf.dart' as shelf;
@@ -38,6 +39,8 @@ class RoutingCore {
 
     /// Core handler shared by all HTTP methods.
     Future<shelf.Response> handleRequest(shelf.Request request) async {
+      final sw = Stopwatch()..start();
+
       // Read the request body once so it can be used in rule evaluation and
       // body interpolation without consuming the stream twice.
       final requestBodyStr = await request.readAsString();
@@ -85,9 +88,34 @@ class RoutingCore {
       // Apply the optional artificial delay before sending the response.
       await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));
 
+      sw.stop();
+
+      final parsedResponseHeaders =
+          Utils.parseHeader(header, interpolation: false);
+
+      // Record structured log entry.
+      LogService().record(LogModel(
+        status: resolvedStatusCode >= 500 ? Status.error : Status.request,
+        log: '${request.method} ${request.requestedUri.path} $resolvedStatusCode',
+        method: request.method,
+        path:
+            request.requestedUri.path +
+            (request.requestedUri.query.isNotEmpty
+                ? '?${request.requestedUri.query}'
+                : ''),
+        requestHeaders: request.headers
+            .map((k, v) => MapEntry(k, v)),
+        requestBody: requestBodyStr.isEmpty ? null : requestBodyStr,
+        statusCode: resolvedStatusCode,
+        responseHeaders: parsedResponseHeaders
+            ?.map((k, v) => MapEntry(k, v.toString())),
+        responseBody: body.isEmpty ? null : body,
+        durationMs: sw.elapsedMilliseconds,
+      ));
+
       return shelf.Response(
         resolvedStatusCode,
-        headers: Utils.parseHeader(header, interpolation: false),
+        headers: parsedResponseHeaders,
         body: body,
       );
     }

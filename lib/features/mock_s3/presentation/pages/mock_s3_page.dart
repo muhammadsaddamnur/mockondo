@@ -79,7 +79,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  'http://${c.host}:${c.port}',
+                  'http://${ctrl.ipAddress.value.isNotEmpty ? ctrl.ipAddress.value : c.host}:${c.port}',
                   style: const TextStyle(
                     color: AppColors.greenD,
                     fontSize: AppTextSize.body,
@@ -194,7 +194,10 @@ class _TopBar extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.m),
-                  _InfoRow('Endpoint', 'http://${c.host}:${c.port}'),
+                  _InfoRow(
+                    'Endpoint',
+                    'http://${ctrl.ipAddress.value.isNotEmpty ? ctrl.ipAddress.value : c.host}:${c.port}',
+                  ),
                   _InfoRow('Access Key', c.accessKey),
                   _InfoRow('Secret Key', c.secretKey),
                   _InfoRow('Region', c.region),
@@ -221,7 +224,7 @@ class _TopBar extends StatelessWidget {
                         const SizedBox(height: AppSpacing.xs),
                         SelectableText(
                           'aws s3 ls \\\n'
-                          '  --endpoint-url http://${c.host}:${c.port} \\\n'
+                          '  --endpoint-url http://${ctrl.ipAddress.value.isNotEmpty ? ctrl.ipAddress.value : c.host}:${c.port} \\\n'
                           '  --no-sign-request',
                           style: TextStyle(
                             color: AppColors.textD,
@@ -1325,6 +1328,7 @@ class _PresignDialogState extends State<_PresignDialog> {
   // If initialKey ends with '/', it is a folder prefix that is shown as
   // read-only context. The user then types only the filename.
   late final String _folderPrefix;
+  late S3Config c;
 
   static const _expiryOpts = [
     ('15 minutes', 900),
@@ -1337,6 +1341,7 @@ class _PresignDialogState extends State<_PresignDialog> {
   @override
   void initState() {
     super.initState();
+    c = widget.ctrl.config.value;
     if (widget.initialKey.endsWith('/')) {
       // Opened from a folder row: keep prefix as context, key input = filename
       _folderPrefix = widget.initialKey;
@@ -1386,9 +1391,10 @@ class _PresignDialogState extends State<_PresignDialog> {
                     height: 28,
                     child: CustomTextField(
                       controller: _keyCtrl,
-                      hintText: _folderPrefix.isNotEmpty
-                          ? 'filename.ext'
-                          : 'path/to/object',
+                      hintText:
+                          _folderPrefix.isNotEmpty
+                              ? 'filename.ext'
+                              : 'path/to/object',
                       textSize: AppTextSize.small,
                       onChanged: (_) => setState(() => _result = null),
                     ),
@@ -1643,21 +1649,32 @@ class _PresignDialogState extends State<_PresignDialog> {
           child: Text('Close', style: TextStyle(color: AppColors.textD)),
         ),
         TextButton(
-          onPressed: _result != null ? null : () {
-            final key = _folderPrefix + _keyCtrl.text.trim();
-            if (key.isEmpty) return;
-            setState(() {
-              _result = widget.ctrl.generatePresignedUrl(
-                bucket: widget.bucket,
-                key: key,
-                operation: _op,
-                expirySeconds: _expiry,
-              );
-            });
-          },
+          onPressed:
+              _result != null
+                  ? null
+                  : () {
+                    final key = _folderPrefix + _keyCtrl.text.trim();
+                    if (key.isEmpty) return;
+                    setState(() {
+                      _result = widget.ctrl.generatePresignedUrl(
+                        bucket: widget.bucket,
+                        key: key,
+                        operation: _op,
+                        expirySeconds: _expiry,
+                        uri:
+                            'http://${widget.ctrl.ipAddress.value.isNotEmpty ? widget.ctrl.ipAddress.value : c.host}:${c.port}',
+                      );
+                    });
+                  },
           child: Text(
             'Generate',
-            style: TextStyle(color: _result != null || (_folderPrefix + _keyCtrl.text.trim()).isEmpty ? AppColors.surfaceD : AppColors.secondaryD),
+            style: TextStyle(
+              color:
+                  _result != null ||
+                          (_folderPrefix + _keyCtrl.text.trim()).isEmpty
+                      ? AppColors.surfaceD
+                      : AppColors.secondaryD,
+            ),
           ),
         ),
       ],
@@ -1692,7 +1709,6 @@ class _SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<_SettingsDialog> {
-  late final TextEditingController _host;
   late final TextEditingController _port;
   late final TextEditingController _access;
   late final TextEditingController _secret;
@@ -1702,7 +1718,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   void initState() {
     super.initState();
     final c = widget.ctrl.config.value;
-    _host = TextEditingController(text: c.host);
     _port = TextEditingController(text: c.port.toString());
     _access = TextEditingController(text: c.accessKey);
     _secret = TextEditingController(text: c.secretKey);
@@ -1711,7 +1726,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 
   @override
   void dispose() {
-    _host.dispose();
     _port.dispose();
     _access.dispose();
     _secret.dispose();
@@ -1732,7 +1746,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _Field(label: 'Host', ctrl: _host, hint: '127.0.0.1'),
+            // Host is read from the system Wi-Fi IP — not editable
+            Obx(
+              () => _ReadOnlyField(
+                label: 'Host',
+                value:
+                    widget.ctrl.ipAddress.value.isNotEmpty
+                        ? widget.ctrl.ipAddress.value
+                        : '(detecting...)',
+              ),
+            ),
             const SizedBox(height: AppSpacing.m),
             _Field(
               label: 'Port',
@@ -1757,8 +1780,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         TextButton(
           onPressed: () {
             widget.ctrl.updateConfig(
-              S3Config(
-                host: _host.text.trim(),
+              widget.ctrl.config.value.copyWith(
                 port: int.tryParse(_port.text) ?? 9000,
                 accessKey: _access.text.trim(),
                 secretKey: _secret.text.trim(),
@@ -1769,6 +1791,40 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             Navigator.pop(context);
           },
           child: Text('Save', style: TextStyle(color: AppColors.secondaryD)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  const _ReadOnlyField({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.6),
+              fontSize: AppTextSize.body,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.5),
+              fontSize: AppTextSize.body,
+              fontFamily: 'monospace',
+            ),
+          ),
         ),
       ],
     );
