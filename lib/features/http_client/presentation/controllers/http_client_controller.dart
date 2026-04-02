@@ -287,9 +287,12 @@ class HttpClientController extends GetxController {
     errorMessage.value = null;
 
     try {
-      // Helper: resolve all ${...} interpolation placeholders in a string.
+      // Helpers: resolve ${...} placeholders.
+      // ip()     — strips JSON-encoded quotes; safe for URLs, headers, keys.
+      // ipBody() — keeps quotes intact; safe for JSON/text body content.
       final interp = Interpolation();
       String ip(String s) => interp.excute(before: s, data: '').replaceAll('"', '');
+      String ipBody(String s) => interp.excute(before: s, data: '');
 
       // Merge enabled query params into the URL.
       var urlStr = ip(req.url.trim());
@@ -386,7 +389,7 @@ class HttpClientController extends GetxController {
           headers['Content-Type'] = 'application/x-www-form-urlencoded';
         }
       } else {
-        body = req.body.isEmpty ? null : ip(req.body);
+        body = req.body.isEmpty ? null : ipBody(req.body);
       }
 
       if (usedMultipart) {
