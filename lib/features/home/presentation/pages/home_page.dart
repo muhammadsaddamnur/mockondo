@@ -11,6 +11,7 @@ import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/features/custom_data/pages/custom_data_page.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
 import 'package:mockondo/features/home/presentation/widgets/endpoint_widget.dart';
+import 'package:mockondo/features/home/presentation/widgets/terminal_widget.dart';
 import 'package:mockondo/features/home/presentation/widgets/ws_endpoint_widget.dart';
 import 'package:mockondo/features/http_client/presentation/pages/http_client_page.dart';
 import 'package:mockondo/features/json_to_code/presentation/pages/json_to_code_page.dart';
@@ -24,7 +25,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _AppMode { mock, httpClient, jsonToCode, mockS3, customData, settings }
+enum _AppMode { mock, httpClient, jsonToCode, mockS3, customData, logs, settings }
 
 class _HomePageState extends State<HomePage> {
   final homeController = Get.put(HomeController());
@@ -264,6 +265,13 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const Spacer(),
                 _ActivityIcon(
+                  icon: Icons.terminal_rounded,
+                  label: 'Logs',
+                  selected: _mode == _AppMode.logs,
+                  onTap: () => setState(() => _mode = _AppMode.logs),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _ActivityIcon(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
                   selected: _mode == _AppMode.settings,
@@ -285,6 +293,42 @@ class _HomePageState extends State<HomePage> {
             const Expanded(child: MockS3Page()),
           ] else if (_mode == _AppMode.customData) ...[
             Expanded(child: CustomDataPage()),
+          ] else if (_mode == _AppMode.logs) ...[
+            Expanded(
+              child: Obx(() {
+                final mockModels = homeController.mockModels;
+                final selectedIndex = homeController.selectedMockModelIndex.value;
+
+                if (mockModels.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No projects available',
+                      style: TextStyle(
+                        color: AppColors.textD.withValues(alpha: 0.5),
+                        fontSize: AppTextSize.body,
+                      ),
+                    ),
+                  );
+                }
+
+                final selectedMock = mockModels[selectedIndex];
+                final logNotifier = selectedMock?.server?.logService.logs;
+
+                if (logNotifier == null) {
+                  return Center(
+                    child: Text(
+                      'No logs available',
+                      style: TextStyle(
+                        color: AppColors.textD.withValues(alpha: 0.5),
+                        fontSize: AppTextSize.body,
+                      ),
+                    ),
+                  );
+                }
+
+                return TerminalWidget(logNotifier: logNotifier);
+              }),
+            ),
           ] else ...[
             // ── Mock sidebar ─────────────────────────────────────────
             Container(

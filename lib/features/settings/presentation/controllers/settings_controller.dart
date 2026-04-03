@@ -16,7 +16,6 @@ class SettingsController extends GetxController {
   final apiKey = ''.obs;
   final isRunning = false.obs;
   final errorMessage = RxnString();
-  final showLogs = false.obs;
 
   final _server = RemoteServer();
 
