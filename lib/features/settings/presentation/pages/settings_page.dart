@@ -472,52 +472,13 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: AppSpacing.m),
             Text(
-              'Mockondo is a powerful mock server builder that enables developers to '
+              'Mockondo is a free and open source mock server builder that enables developers to '
               'quickly create, manage, and test APIs without relying on backend services.',
               style: TextStyle(
                 color: AppColors.textD.withValues(alpha: 0.7),
                 fontSize: AppTextSize.body,
               ),
             ),
-            const SizedBox(height: AppSpacing.xxl),
-            _label('Features'),
-            const SizedBox(height: AppSpacing.m),
-            ...[
-              'Create and manage HTTP endpoints with custom responses',
-              'WebSocket support for real-time communication',
-              'Rule-based response routing with conditional logic',
-              'Custom data management for dynamic responses',
-              'S3-compatible file storage',
-              'HLS streaming support for media content',
-              'OpenAPI 3.0 and AsyncAPI 2.6 import/export',
-              'Remote REST API for programmatic control',
-              'Response interpolation with custom variables',
-              'Request/response logging and inspection',
-            ].map((feature) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.s),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, right: AppSpacing.s),
-                    child: Icon(
-                      Icons.check_circle,
-                      size: 16,
-                      color: AppColors.greenD,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      feature,
-                      style: const TextStyle(
-                        color: AppColors.textD,
-                        fontSize: AppTextSize.body,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
             const SizedBox(height: AppSpacing.xxl),
             _label('Support'),
             const SizedBox(height: AppSpacing.m),
