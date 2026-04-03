@@ -583,12 +583,10 @@ class _SidebarListState extends State<_SidebarList> {
   final _selectedIds = <String>{};
   bool get _hasMultiSelection => _selectedIds.length > 1;
 
-  bool _isCtrlHeld() =>
-      HardwareKeyboard.instance.isControlPressed ||
-      HardwareKeyboard.instance.isMetaPressed;
+  bool _isShiftHeld() => HardwareKeyboard.instance.isShiftPressed;
 
   void _handleReqTap(String id, int reqIdx) {
-    if (_isCtrlHeld()) {
+    if (_isShiftHeld()) {
       setState(() {
         if (_selectedIds.contains(id)) {
           _selectedIds.remove(id);
@@ -797,32 +795,34 @@ class _SidebarListState extends State<_SidebarList> {
         color: Colors.transparent,
         child: SizedBox(
           width: 200,
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.backgroundD,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
-            ),
-            child: isMultiSelected && _selectedIds.length > 1
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      row,
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s, vertical: 2),
-                        margin: const EdgeInsets.only(right: AppSpacing.xs),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryD,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${_selectedIds.length}',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  )
-                : row,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundD,
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
+                ),
+                child: row,
+              ),
+              if (isMultiSelected && _selectedIds.length > 1)
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryD,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_selectedIds.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
