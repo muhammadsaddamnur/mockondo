@@ -778,7 +778,19 @@ class _HomePageState extends State<HomePage> {
                                       : AppColors.greenD,
                               onTap:
                                   serverIsRunning
-                                      ? null
+                                      ? () async {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Text(
+                                                'Stop the server first to make changes',
+                                                style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+                                              ),
+                                              duration: const Duration(seconds: 2),
+                                              backgroundColor: AppColors.backgroundD,
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
                                       : () async {
                                         if (_endpointTab == 0) {
                                           final m =

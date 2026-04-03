@@ -79,6 +79,20 @@ class _EndpointWidgetState extends State<EndpointWidget> {
     );
   }
 
+  void _showServerRunningSnack() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Stop the server first to make changes',
+          style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.backgroundD,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
@@ -120,7 +134,7 @@ class _EndpointWidgetState extends State<EndpointWidget> {
             else
               InkWell(
                 onTap: serverIsRunning
-                    ? null
+                    ? _showServerRunningSnack
                     : () => widget.onChangedCheck!(!enabled),
                 borderRadius: BorderRadius.circular(4),
                 child: Icon(
@@ -248,7 +262,7 @@ class _EndpointWidgetState extends State<EndpointWidget> {
 
             // ── Delete ───────────────────────────────────────────────
             InkWell(
-              onTap: serverIsRunning ? null : widget.onDelete,
+              onTap: serverIsRunning ? _showServerRunningSnack : widget.onDelete,
               borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xs),

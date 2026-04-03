@@ -54,6 +54,20 @@ class _WsEndpointWidgetState extends State<WsEndpointWidget> {
     );
   }
 
+  void _showServerRunningSnack() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Stop the server first to make changes',
+          style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body),
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.backgroundD,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
@@ -82,7 +96,7 @@ class _WsEndpointWidgetState extends State<WsEndpointWidget> {
             // Enable toggle
             InkWell(
               onTap: serverIsRunning
-                  ? null
+                  ? _showServerRunningSnack
                   : () {
                       model?.enable = !enabled;
                       homeController.save();
@@ -194,7 +208,7 @@ class _WsEndpointWidgetState extends State<WsEndpointWidget> {
 
             // Delete
             InkWell(
-              onTap: serverIsRunning ? null : widget.onDelete,
+              onTap: serverIsRunning ? _showServerRunningSnack : widget.onDelete,
               borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xs),

@@ -4,7 +4,8 @@
       "Bash(grep -r \"backgroundColor\\\\|background\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_editor-*/lib/src/code_editor.dart)",
       "Bash(grep \"^final\\\\|^const\\\\|^var\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_highlight-*/lib/styles/atom-one-dark.dart)",
       "Bash(grep -i \"background\\\\|#f\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_highlight-*/lib/styles/atom-one-light.dart)",
-      "Bash(grep -r \"autocomplete\\\\|AutoComplete\\\\|Completion\\\\|completion\\\\|suggestion\\\\|Suggestion\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_editor-*/lib/ --include=\"*.dart\" -l)"
+      "Bash(grep -r \"autocomplete\\\\|AutoComplete\\\\|Completion\\\\|completion\\\\|suggestion\\\\|Suggestion\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_editor-*/lib/ --include=\"*.dart\" -l)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
