@@ -54,14 +54,23 @@ class GenerateCore {
       for (var i = 0; i < limit; i++) {
         // Pass the absolute index as `data` so `${random.index}` returns the
         // correct value for each item in the page.
-        var decode = jsonDecode(
-          Interpolation().excute(
-            before: pagination.response,
-            data: '${(limit * offset) + i}',
-            request: request,
-          ),
+        final interpolated = Interpolation().excute(
+          before: pagination.response,
+          data: '${(limit * offset) + i}',
+          request: request,
         );
-        generatePagination.add(jsonEncode(decode));
+        try {
+          final decode = jsonDecode(interpolated);
+          generatePagination.add(jsonEncode(decode));
+        } catch (_) {
+          // Item template produced invalid JSON after interpolation.
+          // Return an error object so the response is still valid JSON
+          // and the problem is visible in the output.
+          generatePagination.add(jsonEncode({
+            '__error': 'Item template is not valid JSON after interpolation.',
+            '__raw': interpolated,
+          }));
+        }
       }
     }
 

@@ -343,7 +343,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                 Expanded(
                   child: SizedBox(
                     height: 32,
-                    child: CustomTextField(
+                    child: InterpolationTextField(
                       controller: _urlCtrl,
                       hintText: 'ws://localhost:8081/ws',
                       readOnly: isConnected,

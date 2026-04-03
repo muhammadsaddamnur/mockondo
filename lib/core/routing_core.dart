@@ -63,27 +63,37 @@ class RoutingCore {
       }
 
       // Resolve interpolation placeholders in the response headers.
+      // Use '{}' when resolvedHeader is null so Utils.parseHeader gets a
+      // valid JSON object string instead of the literal "null".
+      final headerJson =
+          resolvedHeader != null ? jsonEncode(resolvedHeader) : '{}';
       final header = Interpolation().excute(
         request: request,
-        before: jsonEncode(resolvedHeader),
-        data: jsonEncode(resolvedHeader),
+        before: headerJson,
+        data: headerJson,
         requestBody: requestBodyStr,
       );
 
       // Generate the response body: pagination mode or plain interpolation.
-      final body =
-          pagination == null
-              ? Interpolation().excute(
-                request: request,
-                before: resolvedBody,
-                data: resolvedBody,
-                requestBody: requestBodyStr,
-              )
-              : GenerateCore.pagination(
-                request: request,
-                responseBody: resolvedBody,
-                pagination: pagination,
-              );
+      String body;
+      try {
+        body =
+            pagination == null
+                ? Interpolation().excute(
+                  request: request,
+                  before: resolvedBody,
+                  data: resolvedBody,
+                  requestBody: requestBodyStr,
+                )
+                : GenerateCore.pagination(
+                  request: request,
+                  responseBody: resolvedBody,
+                  pagination: pagination,
+                );
+      } catch (e) {
+        body = '{"error":"Response generation failed: $e"}';
+        resolvedStatusCode = 500;
+      }
 
       // Apply the optional artificial delay before sending the response.
       await Future.delayed(Duration(milliseconds: mockModel.delay ?? 0));

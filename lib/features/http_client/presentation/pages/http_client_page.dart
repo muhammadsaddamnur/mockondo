@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/curl_utils.dart';
+import 'package:mockondo/core/interpolation.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
 import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
@@ -1035,7 +1036,10 @@ class _RequestEditorState extends State<_RequestEditor> {
                     onTap: () {
                       final r = ctrl.selected;
                       if (r == null) return;
-                      var urlStr = r.url.trim();
+                      // Interpolate URL so ${customdata.*} placeholders are resolved
+                      var urlStr = Interpolation()
+                          .excute(before: r.url.trim(), data: '')
+                          .replaceAll('"', '');
                       final enabledParams = r.params.where((p) => p.enabled && p.key.isNotEmpty).toList();
                       if (enabledParams.isNotEmpty) {
                         final uri = Uri.tryParse(urlStr);

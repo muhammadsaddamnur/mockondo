@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
-import 'package:mockondo/core/log.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/routing_core.dart';
 import 'package:mockondo/core/schema_service.dart';
@@ -13,10 +12,10 @@ import 'package:mockondo/features/custom_data/pages/custom_data_page.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
 import 'package:mockondo/features/home/presentation/widgets/endpoint_widget.dart';
 import 'package:mockondo/features/home/presentation/widgets/ws_endpoint_widget.dart';
-import 'package:mockondo/features/home/presentation/widgets/terminal_widget.dart';
 import 'package:mockondo/features/http_client/presentation/pages/http_client_page.dart';
 import 'package:mockondo/features/json_to_code/presentation/pages/json_to_code_page.dart';
 import 'package:mockondo/features/mock_s3/presentation/pages/mock_s3_page.dart';
+import 'package:mockondo/features/settings/presentation/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,7 +24,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _AppMode { mock, httpClient, jsonToCode, mockS3, customData }
+enum _AppMode { mock, httpClient, jsonToCode, mockS3, customData, settings }
 
 class _HomePageState extends State<HomePage> {
   final homeController = Get.put(HomeController());
@@ -263,12 +262,22 @@ class _HomePageState extends State<HomePage> {
                   selected: _mode == _AppMode.customData,
                   onTap: () => setState(() => _mode = _AppMode.customData),
                 ),
+                const Spacer(),
+                _ActivityIcon(
+                  icon: Icons.settings_outlined,
+                  label: 'Settings',
+                  selected: _mode == _AppMode.settings,
+                  onTap: () => setState(() => _mode = _AppMode.settings),
+                ),
+                const SizedBox(height: AppSpacing.m),
               ],
             ),
           ),
 
           // ── Page content switches based on mode ───────────────────
-          if (_mode == _AppMode.httpClient) ...[
+          if (_mode == _AppMode.settings) ...[
+            const Expanded(child: SettingsPage()),
+          ] else if (_mode == _AppMode.httpClient) ...[
             Expanded(child: HttpClientPage()),
           ] else if (_mode == _AppMode.jsonToCode) ...[
             const Expanded(child: JsonToCodePage()),
@@ -925,27 +934,6 @@ class _HomePageState extends State<HomePage> {
                           }),
                         ),
                       ),
-                      Visibility(
-                        visible: homeController.showLog.value,
-                        child: SizedBox(
-                          height: 200,
-                          width: MediaQuery.sizeOf(context).width,
-                          child: ColoredBox(
-                            color: AppColors.terminalD,
-                            child: TerminalWidget(
-                              logNotifier:
-                                  homeController
-                                      .mockModels[homeController
-                                          .selectedMockModelIndex
-                                          .value]
-                                      ?.server
-                                      ?.logService
-                                      .logs ??
-                                  ValueNotifier<List<LogModel>>([]),
-                            ),
-                          ),
-                        ),
-                      ),
                       Container(
                         height: 25,
                         width: MediaQuery.sizeOf(context).width,
@@ -954,59 +942,30 @@ class _HomePageState extends State<HomePage> {
                         ).secondaryDarkness.withValues(alpha: 0.2),
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.xs),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  homeController.showLog.value =
-                                      !homeController.showLog.value;
-                                  setState(() {});
-                                },
-                                child: SizedBox(
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.terminal_rounded, size: 15),
-                                      SizedBox(width: AppSpacing.s),
-                                      Text(
-                                        'log',
-                                        style: TextStyle(
-                                          fontSize: AppTextSize.body,
-                                        ),
-                                      ),
-                                    ],
+                          child: Visibility(
+                            visible:
+                                (homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]
+                                        ?.mockModels
+                                        .where((e) => e.enable)
+                                        .length ??
+                                    0) !=
+                                0,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(Icons.wifi_tethering, size: 15),
+                                SizedBox(width: AppSpacing.s),
+                                Text(
+                                  '${homeController.mockModels[homeController.selectedMockModelIndex.value]?.mockModels.where((e) => e.enable).length} ${serverIsRunning ? 'running...' : 'ready to mock'}',
+                                  style: TextStyle(
+                                    fontSize: AppTextSize.body,
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: AppSpacing.xl),
-                              Visibility(
-                                visible:
-                                    (homeController
-                                            .mockModels[homeController
-                                                .selectedMockModelIndex
-                                                .value]
-                                            ?.mockModels
-                                            .where((e) => e.enable)
-                                            .length ??
-                                        0) !=
-                                    0,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.wifi_tethering, size: 15),
-                                    SizedBox(width: AppSpacing.s),
-                                    Text(
-                                      '${homeController.mockModels[homeController.selectedMockModelIndex.value]?.mockModels.where((e) => e.enable).length} ${serverIsRunning ? 'running...' : 'ready to mock'}',
-                                      style: TextStyle(
-                                        fontSize: AppTextSize.body,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -87,7 +87,9 @@ class MainServer {
       // Send the on-connect message if one is configured.
       final connectMsg = model.onConnectMessage;
       if (connectMsg != null && connectMsg.isNotEmpty) {
-        channel.sink.add(connectMsg);
+        channel.sink.add(
+          Interpolation().excute(before: connectMsg, data: ''),
+        );
       }
 
       logService.record(
@@ -99,21 +101,25 @@ class MainServer {
       for (final sched in model.scheduledMessages) {
         if (!sched.enabled || sched.message.isEmpty) continue;
         final t = Timer(Duration(milliseconds: sched.delayMs), () {
-          channel.sink.add(sched.message);
+          final resolved =
+              Interpolation().excute(before: sched.message, data: '');
+          channel.sink.add(resolved);
           logService.record(
             LogModel(
               status: Status.request,
-              log: 'WS ${model.endpoint} → [scheduled] ${sched.message}',
+              log: 'WS ${model.endpoint} → [scheduled] $resolved',
             ),
           );
           if (sched.repeat && sched.intervalMs > 0) {
             timers.add(
               Timer.periodic(Duration(milliseconds: sched.intervalMs), (_) {
-                channel.sink.add(sched.message);
+                final resolvedRepeat =
+                    Interpolation().excute(before: sched.message, data: '');
+                channel.sink.add(resolvedRepeat);
                 logService.record(
                   LogModel(
                     status: Status.request,
-                    log: 'WS ${model.endpoint} → [scheduled] ${sched.message}',
+                    log: 'WS ${model.endpoint} → [scheduled] $resolvedRepeat',
                   ),
                 );
               }),
@@ -133,11 +139,13 @@ class MainServer {
           // Evaluate rules in order; first match wins.
           for (final rule in model.rules) {
             if (rule.matches(msg)) {
-              channel.sink.add(rule.response);
+              final resolved =
+                  Interpolation().excute(before: rule.response, data: msg);
+              channel.sink.add(resolved);
               logService.record(
                 LogModel(
                   status: Status.request,
-                  log: 'WS ${model.endpoint} → ${rule.response}',
+                  log: 'WS ${model.endpoint} → $resolved',
                 ),
               );
               return;
@@ -189,10 +197,16 @@ class MainServer {
       return Response.notFound('No mock endpoint matched: /${request.url}');
     }
 
+    // Interpolate the request path so placeholders like ${customdata.basePath}
+    // are resolved before forwarding to the proxy.
+    final interpolatedPath = Interpolation()
+        .excute(before: request.url.path, data: '')
+        .replaceAll('"', '');
+
     final uri = Uri(
       scheme: host.scheme,
       host: host.host,
-      path: request.url.path,
+      path: interpolatedPath,
       queryParameters: request.url.queryParameters,
     );
 
@@ -210,13 +224,15 @@ class MainServer {
     }
 
     try {
-      final streamedResponse = await clientRequest.send();
+      final streamedResponse = await clientRequest.send()
+          .timeout(const Duration(seconds: 30));
 
       final encoding =
           streamedResponse.headers['content-encoding']?.toLowerCase() ?? '';
       final isGzip = encoding.contains('gzip');
 
-      final bytes = await streamedResponse.stream.toBytes();
+      final bytes = await streamedResponse.stream.toBytes()
+          .timeout(const Duration(seconds: 30));
 
       List<int> decompressedBytes;
       if (isGzip) {

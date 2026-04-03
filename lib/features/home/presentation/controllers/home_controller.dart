@@ -21,9 +21,6 @@ class HomeController extends GetxController {
   /// Port input for the currently selected project.
   final portController = TextEditingController().obs;
 
-  /// Whether the terminal log panel is visible.
-  final showLog = false.obs;
-
   /// The device's current Wi-Fi IP address, used as the server bind address.
   final ipAddress = ''.obs;
 

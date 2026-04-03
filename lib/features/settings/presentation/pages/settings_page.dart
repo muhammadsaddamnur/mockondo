@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
+import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
+import 'package:mockondo/features/home/presentation/widgets/terminal_widget.dart';
 import 'package:mockondo/features/settings/presentation/controllers/settings_controller.dart';
 
 enum _SettingsTab {
   remoteServer('Remote Server', Icons.cloud),
+  logs('Logs', Icons.terminal),
   about('About', Icons.info);
 
   final String label;
@@ -167,7 +170,9 @@ class _SettingsPageState extends State<SettingsPage> {
           Expanded(
             child: _selectedTab == _SettingsTab.remoteServer
                 ? _buildRemoteServerView()
-                : _buildAboutView(),
+                : _selectedTab == _SettingsTab.logs
+                    ? _buildLogsView()
+                    : _buildAboutView(),
           ),
         ],
       ),
@@ -521,6 +526,43 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildLogsView() {
+    final homeCtrl = Get.find<HomeController>();
+    return Obx(() {
+      final mockModels = homeCtrl.mockModels;
+      final selectedIndex = homeCtrl.selectedMockModelIndex.value;
+
+      if (mockModels.isEmpty) {
+        return Center(
+          child: Text(
+            'No projects available',
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.5),
+              fontSize: AppTextSize.body,
+            ),
+          ),
+        );
+      }
+
+      final selectedMock = mockModels[selectedIndex];
+      final logNotifier = selectedMock?.server?.logService.logs;
+
+      if (logNotifier == null) {
+        return Center(
+          child: Text(
+            'No logs available',
+            style: TextStyle(
+              color: AppColors.textD.withValues(alpha: 0.5),
+              fontSize: AppTextSize.body,
+            ),
+          ),
+        );
+      }
+
+      return TerminalWidget(logNotifier: logNotifier);
+    });
   }
 }
 

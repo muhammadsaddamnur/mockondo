@@ -26,6 +26,56 @@ void main() {
       expect(model.status, equals(Status.error));
       expect(model.log, equals('Server error'));
     });
+
+    test('isHttpEntry is false when method is null', () {
+      final model = LogModel(status: Status.request, log: 'server started');
+      expect(model.isHttpEntry, isFalse);
+    });
+
+    test('isHttpEntry is true when method is set', () {
+      final model = LogModel(
+        status: Status.request,
+        log: 'GET /api 200',
+        method: 'GET',
+      );
+      expect(model.isHttpEntry, isTrue);
+    });
+
+    test('stores all structured HTTP fields', () {
+      final model = LogModel(
+        status: Status.request,
+        log: 'POST /users 201',
+        method: 'POST',
+        path: '/users',
+        requestHeaders: {'content-type': 'application/json'},
+        requestBody: '{"name":"Alice"}',
+        statusCode: 201,
+        responseHeaders: {'x-request-id': 'abc123'},
+        responseBody: '{"id":1}',
+        durationMs: 42,
+      );
+
+      expect(model.method, equals('POST'));
+      expect(model.path, equals('/users'));
+      expect(model.requestHeaders, equals({'content-type': 'application/json'}));
+      expect(model.requestBody, equals('{"name":"Alice"}'));
+      expect(model.statusCode, equals(201));
+      expect(model.responseHeaders, equals({'x-request-id': 'abc123'}));
+      expect(model.responseBody, equals('{"id":1}'));
+      expect(model.durationMs, equals(42));
+    });
+
+    test('structured HTTP fields are null when not provided', () {
+      final model = LogModel(status: Status.request, log: 'ping');
+      expect(model.method, isNull);
+      expect(model.path, isNull);
+      expect(model.requestHeaders, isNull);
+      expect(model.requestBody, isNull);
+      expect(model.statusCode, isNull);
+      expect(model.responseHeaders, isNull);
+      expect(model.responseBody, isNull);
+      expect(model.durationMs, isNull);
+    });
   });
 
   group('LogService', () {
@@ -71,6 +121,23 @@ void main() {
       svc.logs.addListener(() => notified = true);
       svc.clear();
       expect(notified, isTrue);
+    });
+
+    test('record() preserves all HTTP fields on the entry', () {
+      final svc = LogService();
+      svc.record(LogModel(
+        status: Status.request,
+        log: 'DELETE /item 204',
+        method: 'DELETE',
+        path: '/item',
+        statusCode: 204,
+        durationMs: 8,
+      ));
+      final entry = svc.logs.value.first;
+      expect(entry.isHttpEntry, isTrue);
+      expect(entry.method, equals('DELETE'));
+      expect(entry.statusCode, equals(204));
+      expect(entry.durationMs, equals(8));
     });
   });
 }

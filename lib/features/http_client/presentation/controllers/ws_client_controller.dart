@@ -135,7 +135,10 @@ class WsClientController extends GetxController {
     if (item == null) return;
     final id = item.id;
 
-    final urlStr = item.url.trim();
+    // Interpolate URL so ${customdata.*} placeholders are resolved
+    final urlStr = Interpolation()
+        .excute(before: item.url.trim(), data: '')
+        .replaceAll('"', '');
     if (urlStr.isEmpty) {
       errorMessage.value = 'URL is empty.';
       return;

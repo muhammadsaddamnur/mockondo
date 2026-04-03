@@ -92,6 +92,30 @@ void main() {
       final rule = Rules.fromJson(json);
       expect(rule.type, equals(RulesType.response));
     });
+
+    test('responseHeader is included in toJson when set', () {
+      final rule = Rules(
+        type: RulesType.response,
+        rules: {},
+        response: '{}',
+        responseHeader: {'X-Custom': 'value'},
+      );
+      final json = rule.toJson();
+      expect(json['response_header'], isNotNull);
+      expect((json['response_header'] as Map)['X-Custom'], equals('value'));
+    });
+
+    test('responseHeader is absent from toJson when null', () {
+      final rule = Rules(type: RulesType.response, rules: {}, response: '');
+      expect(rule.toJson().containsKey('response_header'), isFalse);
+    });
+
+    test('copyWith preserves unchanged fields', () {
+      final original = sample();
+      final copy = original.copyWith(response: '{"ok":true}');
+      expect(copy.response, equals('{"ok":true}'));
+      expect(copy.type, equals(original.type));
+    });
   });
 
   // ── ResponseRulesExt ───────────────────────────────────────────────────────
@@ -229,6 +253,13 @@ void main() {
       final cond = ResponseCondition.fromJson(json);
       expect(cond.operator, equals(ResponseRuleOperator.equals));
     });
+
+    test('copyWith only changes specified fields', () {
+      final original = sample();
+      final copy = original.copyWith(value: 'Token');
+      expect(copy.value, equals('Token'));
+      expect(copy.key, equals(original.key));
+    });
   });
 
   // ── MockData serialisation ─────────────────────────────────────────────────
@@ -249,6 +280,185 @@ void main() {
       expect(json['port'], equals(3000));
       expect(json['mock_models'], isEmpty);
       expect(json.containsKey('server'), isFalse);
+    });
+
+    test('includes ws_mock_models in output', () {
+      final data = MockData(
+        id: 2,
+        name: 'WS Project',
+        host: '0.0.0.0',
+        port: 8080,
+        mockModels: [],
+        wsMockModels: [
+          WsMockModel(enable: true, endpoint: '/ws'),
+        ],
+      );
+      final json = data.toJson();
+      final wsModels = json['ws_mock_models'] as List;
+      expect(wsModels.length, equals(1));
+      expect((wsModels.first as Map)['endpoint'], equals('/ws'));
+    });
+
+    test('fromJson → toJson round-trip for MockData with models', () {
+      final original = MockData(
+        id: 5,
+        name: 'Round-trip',
+        host: 'localhost',
+        port: 9090,
+        mockModels: [
+          MockModel(
+            enable: true,
+            endpoint: '/ping',
+            statusCode: 200,
+            responseBody: '{}',
+            method: 'GET',
+          ),
+        ],
+      );
+      final restored = MockData.fromJson(original.toJson());
+      expect(restored.id, equals(5));
+      expect(restored.name, equals('Round-trip'));
+      expect(restored.mockModels.length, equals(1));
+      expect(restored.mockModels.first.endpoint, equals('/ping'));
+    });
+  });
+
+  // ── WsMockRule ─────────────────────────────────────────────────────────────
+
+  group('WsMockRule', () {
+    test('exact match returns true for identical message', () {
+      final rule = WsMockRule(id: 'r1', pattern: 'ping', response: 'pong');
+      expect(rule.matches('ping'), isTrue);
+    });
+
+    test('exact match returns false for different message', () {
+      final rule = WsMockRule(id: 'r1', pattern: 'ping', response: 'pong');
+      expect(rule.matches('PING'), isFalse);
+    });
+
+    test('regex match works correctly', () {
+      final rule = WsMockRule(
+        id: 'r2',
+        pattern: r'^hello.*',
+        isRegex: true,
+        response: 'world',
+      );
+      expect(rule.matches('hello world'), isTrue);
+      expect(rule.matches('goodbye'), isFalse);
+    });
+
+    test('invalid regex returns false gracefully', () {
+      final rule = WsMockRule(
+        id: 'r3',
+        pattern: r'[invalid',
+        isRegex: true,
+        response: 'oops',
+      );
+      expect(rule.matches('anything'), isFalse);
+    });
+
+    test('toJson → fromJson round-trip is lossless', () {
+      final original = WsMockRule(
+        id: 'r4',
+        pattern: 'subscribe',
+        isRegex: false,
+        response: '{"type":"subscribed"}',
+      );
+      final restored = WsMockRule.fromJson(original.toJson());
+      expect(restored.id, equals(original.id));
+      expect(restored.pattern, equals(original.pattern));
+      expect(restored.isRegex, equals(original.isRegex));
+      expect(restored.response, equals(original.response));
+    });
+
+    test('copyWith changes only specified fields', () {
+      final original = WsMockRule(id: 'r5', pattern: 'a', response: 'b');
+      final copy = original.copyWith(response: 'c');
+      expect(copy.response, equals('c'));
+      expect(copy.pattern, equals('a'));
+    });
+  });
+
+  // ── WsScheduledMessage ─────────────────────────────────────────────────────
+
+  group('WsScheduledMessage', () {
+    test('toJson → fromJson round-trip is lossless', () {
+      final original = WsScheduledMessage(
+        id: 'sm1',
+        enabled: true,
+        message: '{"heartbeat":true}',
+        delayMs: 500,
+        repeat: true,
+        intervalMs: 3000,
+      );
+      final restored = WsScheduledMessage.fromJson(original.toJson());
+      expect(restored.id, equals('sm1'));
+      expect(restored.enabled, isTrue);
+      expect(restored.message, equals('{"heartbeat":true}'));
+      expect(restored.delayMs, equals(500));
+      expect(restored.repeat, isTrue);
+      expect(restored.intervalMs, equals(3000));
+    });
+
+    test('fromJson uses defaults for missing fields', () {
+      final msg = WsScheduledMessage.fromJson({'id': 'sm2'});
+      expect(msg.enabled, isTrue);
+      expect(msg.message, equals(''));
+      expect(msg.delayMs, equals(1000));
+      expect(msg.repeat, isFalse);
+      expect(msg.intervalMs, equals(5000));
+    });
+
+    test('copyWith changes only specified fields', () {
+      final original = WsScheduledMessage(
+        id: 'sm3',
+        message: 'tick',
+        delayMs: 1000,
+      );
+      final copy = original.copyWith(delayMs: 2000);
+      expect(copy.delayMs, equals(2000));
+      expect(copy.message, equals('tick'));
+    });
+  });
+
+  // ── WsMockModel ────────────────────────────────────────────────────────────
+
+  group('WsMockModel', () {
+    test('toJson → fromJson round-trip preserves all fields', () {
+      final original = WsMockModel(
+        enable: true,
+        endpoint: '/chat',
+        onConnectMessage: '{"type":"connected"}',
+        rules: [
+          WsMockRule(id: 'r1', pattern: 'hello', response: 'hi'),
+        ],
+        scheduledMessages: [
+          WsScheduledMessage(id: 'sm1', message: 'ping', delayMs: 100),
+        ],
+      );
+      final restored = WsMockModel.fromJson(original.toJson());
+      expect(restored.enable, isTrue);
+      expect(restored.endpoint, equals('/chat'));
+      expect(restored.onConnectMessage, equals('{"type":"connected"}'));
+      expect(restored.rules.length, equals(1));
+      expect(restored.rules.first.pattern, equals('hello'));
+      expect(restored.scheduledMessages.length, equals(1));
+      expect(restored.scheduledMessages.first.message, equals('ping'));
+    });
+
+    test('fromJson uses sensible defaults', () {
+      final model = WsMockModel.fromJson({'endpoint': '/ws'});
+      expect(model.enable, isFalse);
+      expect(model.onConnectMessage, isNull);
+      expect(model.rules, isEmpty);
+      expect(model.scheduledMessages, isEmpty);
+    });
+
+    test('copyWith changes only specified fields', () {
+      final original = WsMockModel(enable: true, endpoint: '/ws');
+      final copy = original.copyWith(endpoint: '/notifications');
+      expect(copy.endpoint, equals('/notifications'));
+      expect(copy.enable, isTrue);
     });
   });
 }
