@@ -148,10 +148,13 @@ class _HttpClientPageState extends State<HttpClientPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: ctrl.addRequest,
-                      style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                      child: const Text('New Request'),
+                    SizedBox(
+                      width: 200,
+                      child: ButtonWidget(
+                        onTap: () async => ctrl.addRequest(),
+                        color: AppColors.secondaryD,
+                        child: const Text('New Request'),
+                      ),
                     ),
                   ],
                 ),
@@ -250,8 +253,8 @@ class _HttpClientPageState extends State<HttpClientPage> {
                       child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6), fontSize: AppTextSize.body)),
                     ),
                     const SizedBox(width: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: () {
+                    ButtonWidget(
+                      onTap: () async {
                         final item = CurlUtils.parse(textCtrl.text.trim());
                         if (item != null) {
                           ctrl.requests.add(item);
@@ -262,12 +265,8 @@ class _HttpClientPageState extends State<HttpClientPage> {
                         }
                         Navigator.pop(ctx);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondaryD,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                      ),
-                      child: const Text('Import', style: TextStyle(color: Colors.white, fontSize: AppTextSize.body)),
+                      color: AppColors.secondaryD,
+                      child: const Text('Import'),
                     ),
                   ],
                 ),
@@ -284,6 +283,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
     HttpClientController ctrl,
     int index,
     Offset position,
+    Set<String> selectedIds,
   ) {
     final req = ctrl.requests[index];
     showMenu(
@@ -292,7 +292,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
       color: AppColors.backgroundD,
       items: [
         PopupMenuItem(
-          onTap: () => ctrl.duplicateRequest(index),
+          onTap: () => ctrl.duplicateRequest(index, selectedIds),
           child: Row(children: [
             Icon(Icons.copy, size: 13, color: AppColors.textD),
             const SizedBox(width: AppSpacing.m),
@@ -301,7 +301,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
         ),
         if (ctrl.groups.isNotEmpty)
           PopupMenuItem(
-            onTap: () => _showMoveToGroupDialog(ctrl, index),
+            onTap: () => _showMoveToGroupDialog(ctrl, index, selectedIds),
             child: Row(children: [
               Icon(Icons.drive_file_move_outlined, size: 13, color: AppColors.textD),
               const SizedBox(width: AppSpacing.m),
@@ -310,7 +310,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
             ]),
           ),
         PopupMenuItem(
-          onTap: () => ctrl.deleteRequest(index),
+          onTap: () => ctrl.deleteRequest(index, selectedIds),
           child: Row(children: [
             Icon(Icons.delete_outline, size: 13, color: AppColors.red),
             const SizedBox(width: AppSpacing.m),
@@ -414,13 +414,13 @@ class _HttpClientPageState extends State<HttpClientPage> {
                       child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6))),
                     ),
                     const SizedBox(width: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: () {
+                    ButtonWidget(
+                      onTap: () async {
                         if (textCtrl.text.trim().isNotEmpty) ctrl.addGroup(textCtrl.text.trim());
                         Get.back();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondaryD, elevation: 0),
-                      child: const Text('Add', style: TextStyle(color: Colors.white)),
+                      color: AppColors.secondaryD,
+                      child: const Text('Add'),
                     ),
                   ],
                 ),
@@ -481,13 +481,13 @@ class _HttpClientPageState extends State<HttpClientPage> {
                       child: Text('Cancel', style: TextStyle(color: AppColors.textD.withValues(alpha: 0.6))),
                     ),
                     const SizedBox(width: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: () {
+                    ButtonWidget(
+                      onTap: () async {
                         if (textCtrl.text.trim().isNotEmpty) ctrl.renameGroup(group.id, textCtrl.text.trim());
                         Get.back();
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.secondaryD, elevation: 0),
-                      child: const Text('Save', style: TextStyle(color: Colors.white)),
+                      color: AppColors.secondaryD,
+                      child: const Text('Save'),
                     ),
                   ],
                 ),
@@ -499,7 +499,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
     );
   }
 
-  void _showMoveToGroupDialog(HttpClientController ctrl, int reqIdx) {
+  void _showMoveToGroupDialog(HttpClientController ctrl, int reqIdx, Set<String> selectedIds) {
     Get.dialog(
       Dialog(
         backgroundColor: Colors.transparent,
@@ -518,7 +518,11 @@ class _HttpClientPageState extends State<HttpClientPage> {
               Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
               ...ctrl.groups.map((g) => InkWell(
                 onTap: () {
-                  ctrl.moveRequestToGroup(reqIdx, g.id);
+                  if (selectedIds.contains(ctrl.requests[reqIdx].id) && selectedIds.length > 1) {
+                    ctrl.moveRequestsToGroup(selectedIds.toList(), g.id);
+                  } else {
+                    ctrl.moveRequestToGroup(reqIdx, g.id);
+                  }                    
                   Get.back();
                 },
                 child: Padding(
@@ -566,7 +570,7 @@ class _SidebarList extends StatefulWidget {
   });
 
   final HttpClientController ctrl;
-  final void Function(BuildContext, HttpClientController, int, Offset) onRequestContextMenu;
+  final void Function(BuildContext, HttpClientController, int, Offset, Set<String>) onRequestContextMenu;
   final void Function(BuildContext, HttpClientController, HttpRequestGroup, Offset) onGroupContextMenu;
 
   @override
@@ -588,6 +592,7 @@ class _SidebarListState extends State<_SidebarList> {
   void _handleReqTap(String id, int reqIdx) {
     if (_isShiftHeld()) {
       setState(() {
+        if (_selectedIds.isEmpty) _selectedIds.add(widget.ctrl.requests[widget.ctrl.selectedIndex.value].id); // start multi-select
         if (_selectedIds.contains(id)) {
           _selectedIds.remove(id);
         } else {
@@ -675,7 +680,7 @@ class _SidebarListState extends State<_SidebarList> {
                 if (i.isEven) return _insertZone(i ~/ 2, flat);
                 final entry = flat[i ~/ 2];
                 if (entry is HttpRequestGroup) return _groupEntry(entry, context);
-                return _reqEntry(entry as HttpRequestItem, flat, context);
+                return _reqEntry(entry as HttpRequestItem, flat, context, _selectedIds);
               },
             ),
           ),
@@ -775,7 +780,7 @@ class _SidebarListState extends State<_SidebarList> {
     );
   }
 
-  Widget _reqEntry(HttpRequestItem req, List<Object> flat, BuildContext context) {
+  Widget _reqEntry(HttpRequestItem req, List<Object> flat, BuildContext context, Set<String> selectedIds) {
     final reqIdx = widget.ctrl.requests.indexOf(req);
     final isMultiSelected = _selectedIds.contains(req.id);
     final row = _ReqRow(
@@ -784,7 +789,7 @@ class _SidebarListState extends State<_SidebarList> {
       ctrl: widget.ctrl,
       isMultiSelected: isMultiSelected,
       onTap: () => _handleReqTap(req.id, reqIdx),
-      onContextMenu: (pos) => widget.onRequestContextMenu(context, widget.ctrl, reqIdx, pos),
+      onContextMenu: (pos) => widget.onRequestContextMenu(context, widget.ctrl, reqIdx, pos, selectedIds),
     );
     return Draggable<String>(
       data: req.id,

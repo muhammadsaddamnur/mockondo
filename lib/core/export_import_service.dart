@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/mock_model.dart';
 import 'package:mockondo/core/server.dart';
+import 'package:mockondo/core/widgets/button_widget.dart';
 import 'package:mockondo/features/home/presentation/controllers/home_controller.dart';
 import 'package:mockondo/features/http_client/data/models/http_client_model.dart';
 import 'package:mockondo/features/http_client/data/models/ws_client_model.dart';
@@ -54,8 +55,7 @@ class ExportImportService {
       final homeCtrl = Get.find<HomeController>();
 
       // ── Mock projects + custom data ──────────────────────────────────
-      final mockProjects =
-          homeCtrl.mockModels.map((m) => m?.toJson()).toList();
+      final mockProjects = homeCtrl.mockModels.map((m) => m?.toJson()).toList();
 
       final customData = homeCtrl.customData.map(
         (k, v) => MapEntry(k, v.toList()),
@@ -72,12 +72,18 @@ class ExportImportService {
       } else {
         final reqRaw = prefs.getString('http_client_requests');
         final grpRaw = prefs.getString('http_client_groups');
-        httpRequests = reqRaw != null
-            ? (jsonDecode(reqRaw) as List).whereType<Map<String, dynamic>>().toList()
-            : [];
-        httpGroups = grpRaw != null
-            ? (jsonDecode(grpRaw) as List).whereType<Map<String, dynamic>>().toList()
-            : [];
+        httpRequests =
+            reqRaw != null
+                ? (jsonDecode(reqRaw) as List)
+                    .whereType<Map<String, dynamic>>()
+                    .toList()
+                : [];
+        httpGroups =
+            grpRaw != null
+                ? (jsonDecode(grpRaw) as List)
+                    .whereType<Map<String, dynamic>>()
+                    .toList()
+                : [];
       }
 
       // ── WebSocket client ─────────────────────────────────────────────
@@ -88,9 +94,12 @@ class ExportImportService {
         wsConnections = wsCtrl.items.map((i) => i.toJson()).toList();
       } else {
         final wsRaw = prefs.getString('ws_client_items');
-        wsConnections = wsRaw != null
-            ? (jsonDecode(wsRaw) as List).whereType<Map<String, dynamic>>().toList()
-            : [];
+        wsConnections =
+            wsRaw != null
+                ? (jsonDecode(wsRaw) as List)
+                    .whereType<Map<String, dynamic>>()
+                    .toList()
+                : [];
       }
 
       // ── Mock S3 ──────────────────────────────────────────────────────
@@ -107,15 +116,22 @@ class ExportImportService {
         final cfgRaw = prefs.getString('mock_s3_config');
         final bktRaw = prefs.getString('mock_s3_buckets');
         final objRaw = prefs.getString('mock_s3_objects');
-        s3Config = cfgRaw != null
-            ? jsonDecode(cfgRaw) as Map<String, dynamic>
-            : const S3Config().toJson();
-        s3Buckets = bktRaw != null
-            ? (jsonDecode(bktRaw) as List).whereType<Map<String, dynamic>>().toList()
-            : [];
-        s3Objects = objRaw != null
-            ? (jsonDecode(objRaw) as List).whereType<Map<String, dynamic>>().toList()
-            : [];
+        s3Config =
+            cfgRaw != null
+                ? jsonDecode(cfgRaw) as Map<String, dynamic>
+                : const S3Config().toJson();
+        s3Buckets =
+            bktRaw != null
+                ? (jsonDecode(bktRaw) as List)
+                    .whereType<Map<String, dynamic>>()
+                    .toList()
+                : [];
+        s3Objects =
+            objRaw != null
+                ? (jsonDecode(objRaw) as List)
+                    .whereType<Map<String, dynamic>>()
+                    .toList()
+                : [];
       }
 
       final payload = {
@@ -202,10 +218,11 @@ class ExportImportService {
 
       // ── Mock projects ────────────────────────────────────────────────
       final projectsJson = payload['mock_projects'] as List<dynamic>? ?? [];
-      homeCtrl.mockModels.value = projectsJson
-          .whereType<Map<String, dynamic>>()
-          .map((e) => MockData.fromJson(e)..server = MainServer())
-          .toList();
+      homeCtrl.mockModels.value =
+          projectsJson
+              .whereType<Map<String, dynamic>>()
+              .map((e) => MockData.fromJson(e)..server = MainServer())
+              .toList();
 
       if (homeCtrl.mockModels.isNotEmpty) {
         homeCtrl.selectedMockModelIndex.value = 0;
@@ -229,30 +246,34 @@ class ExportImportService {
       await homeCtrl.saveCustomData();
 
       // ── HTTP client ──────────────────────────────────────────────────
-      final httpCtrl = Get.isRegistered<HttpClientController>()
-          ? Get.find<HttpClientController>()
-          : Get.put(HttpClientController());
+      final httpCtrl =
+          Get.isRegistered<HttpClientController>()
+              ? Get.find<HttpClientController>()
+              : Get.put(HttpClientController());
 
       final requestsJson = payload['http_requests'] as List<dynamic>? ?? [];
-      httpCtrl.requests.value = requestsJson
-          .whereType<Map<String, dynamic>>()
-          .map(HttpRequestItem.fromJson)
-          .toList();
+      httpCtrl.requests.value =
+          requestsJson
+              .whereType<Map<String, dynamic>>()
+              .map(HttpRequestItem.fromJson)
+              .toList();
 
       final groupsJson = payload['http_groups'] as List<dynamic>? ?? [];
-      httpCtrl.groups.value = groupsJson
-          .whereType<Map<String, dynamic>>()
-          .map(HttpRequestGroup.fromJson)
-          .toList();
+      httpCtrl.groups.value =
+          groupsJson
+              .whereType<Map<String, dynamic>>()
+              .map(HttpRequestGroup.fromJson)
+              .toList();
 
       httpCtrl.saveRequests();
 
       // ── WebSocket client ─────────────────────────────────────────────
       final wsJson = payload['ws_connections'] as List<dynamic>? ?? [];
-      final wsItems = wsJson
-          .whereType<Map<String, dynamic>>()
-          .map(WsClientItem.fromJson)
-          .toList();
+      final wsItems =
+          wsJson
+              .whereType<Map<String, dynamic>>()
+              .map(WsClientItem.fromJson)
+              .toList();
 
       if (Get.isRegistered<WsClientController>()) {
         final wsCtrl = Get.find<WsClientController>();
@@ -266,22 +287,24 @@ class ExportImportService {
       }
 
       // ── Mock S3 ──────────────────────────────────────────────────────
-      final s3ConfigJson =
-          payload['s3_config'] as Map<String, dynamic>? ?? {};
+      final s3ConfigJson = payload['s3_config'] as Map<String, dynamic>? ?? {};
       final s3BucketsJson = payload['s3_buckets'] as List<dynamic>? ?? [];
       final s3ObjectsJson = payload['s3_objects'] as List<dynamic>? ?? [];
 
-      final s3Config = s3ConfigJson.isNotEmpty
-          ? S3Config.fromJson(s3ConfigJson)
-          : const S3Config();
-      final s3Buckets = s3BucketsJson
-          .whereType<Map<String, dynamic>>()
-          .map(S3Bucket.fromJson)
-          .toList();
-      final s3Objects = s3ObjectsJson
-          .whereType<Map<String, dynamic>>()
-          .map(S3Object.fromJson)
-          .toList();
+      final s3Config =
+          s3ConfigJson.isNotEmpty
+              ? S3Config.fromJson(s3ConfigJson)
+              : const S3Config();
+      final s3Buckets =
+          s3BucketsJson
+              .whereType<Map<String, dynamic>>()
+              .map(S3Bucket.fromJson)
+              .toList();
+      final s3Objects =
+          s3ObjectsJson
+              .whereType<Map<String, dynamic>>()
+              .map(S3Object.fromJson)
+              .toList();
 
       if (Get.isRegistered<MockS3Controller>()) {
         final s3Ctrl = Get.find<MockS3Controller>();
@@ -318,36 +341,42 @@ class ExportImportService {
   static Future<bool> _confirmDialog(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.backgroundD,
-        title: Text(
-          'Import?',
-          style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.title),
-        ),
-        content: Text(
-          'This will replace all current data including mock projects, endpoints, '
-          'custom data, HTTP client requests, WebSocket connections, and S3 settings. '
-          'S3 file content stored on disk is not affected. This action cannot be undone.',
-          style: TextStyle(
-            color: AppColors.textD.withValues(alpha: 0.75),
-            fontSize: AppTextSize.body,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textD)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(elevation: 0),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Import',
-              style: TextStyle(fontSize: AppTextSize.body),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: AppColors.backgroundD,
+            title: Text(
+              'Import?',
+              style: TextStyle(
+                color: AppColors.textD,
+                fontSize: AppTextSize.title,
+              ),
             ),
+            content: Text(
+              'This will replace all current data including mock projects, endpoints, '
+              'custom data, HTTP client requests, WebSocket connections, and S3 settings. '
+              'S3 file content stored on disk is not affected. This action cannot be undone.',
+              style: TextStyle(
+                color: AppColors.textD.withValues(alpha: 0.75),
+                fontSize: AppTextSize.body,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel', style: TextStyle(color: AppColors.textD)),
+              ),
+              SizedBox(
+                width: 200,
+                child: ButtonWidget(
+                  onTap: () async {
+                    Navigator.pop(ctx, true);
+                  },
+                  color: AppColors.secondaryD,
+                  child: const Text('Import'),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     return result ?? false;
   }

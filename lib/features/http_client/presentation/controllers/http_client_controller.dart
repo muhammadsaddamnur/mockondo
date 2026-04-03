@@ -74,7 +74,15 @@ class HttpClientController extends GetxController {
   }
 
   /// Creates a deep copy of the request at [index] and inserts it below.
-  void duplicateRequest(int index) {
+  void duplicateRequest(int index, Set<String> selectedIds) {
+    if (selectedIds.isNotEmpty) {
+      for (final id in selectedIds) {
+        final idx = requests.indexWhere((r) => r.id == id);
+        if (idx != -1) duplicateRequest(idx, {});
+      }
+      return;
+    }
+    
     final original = requests[index];
     final copy = HttpRequestItem(
       id: UuidV4().generate(),
@@ -94,7 +102,12 @@ class HttpClientController extends GetxController {
   }
 
   /// Removes the request at [index] and adjusts [selectedIndex].
-  void deleteRequest(int index) {
+  void deleteRequest(int index, Set<String> selectedIds) {
+    if (selectedIds.isNotEmpty) {
+      deleteRequests(selectedIds.toList());
+      return;
+    }
+    
     requests.removeAt(index);
     if (requests.isEmpty) {
       response.value = null;

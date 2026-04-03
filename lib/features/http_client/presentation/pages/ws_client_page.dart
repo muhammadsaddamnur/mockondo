@@ -114,12 +114,15 @@ class WsClientPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: ctrl.addItem,
-                      style: ButtonStyle(
-                        elevation: const WidgetStatePropertyAll(0),
+                    SizedBox(
+                      width: 200,
+                      child: ButtonWidget(
+                        onTap: () async {
+                          ctrl.addItem();
+                        },
+                        color: AppColors.secondaryD,
+                        child: const Text('New Connection'),
                       ),
-                      child: const Text('New Connection'),
                     ),
                   ],
                 ),
@@ -480,7 +483,8 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                   onTap: () async {
                     isConnected ? _sendMessage() : null;
                   },
-                  color: isConnected ? AppColors.secondaryD : AppColors.surfaceD,
+                  color:
+                      isConnected ? AppColors.secondaryD : AppColors.surfaceD,
                   child: const Text(
                     'Send',
                     style: TextStyle(fontSize: AppTextSize.body),

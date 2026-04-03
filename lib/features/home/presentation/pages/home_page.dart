@@ -503,23 +503,6 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                     ),
-
-                    // // Add project button
-                    // Padding(
-                    //   padding: const EdgeInsets.all(AppSpacing.m),
-                    //   child: SizedBox(
-                    //     width: double.infinity,
-                    //     child: ElevatedButton.icon(
-                    //       onPressed: homeController.createModel,
-                    //       style: ElevatedButton.styleFrom(elevation: 0),
-                    //       icon: const Icon(Icons.add, size: 14),
-                    //       label: const Text(
-                    //         'Add Project',
-                    //         style: TextStyle(fontSize: AppTextSize.body),
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
                   ],
                 );
               }),
