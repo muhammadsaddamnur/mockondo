@@ -482,14 +482,16 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: AppSpacing.xxl),
             _label('Support'),
             const SizedBox(height: AppSpacing.m),
-            GestureDetector(
-              onTap: () async {
-                final url = Uri.parse('https://github.com/sponsors/muhammadsaddamnur');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Container(
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () async {
+                  final url = Uri.parse('https://github.com/sponsors/muhammadsaddamnur');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Container(
                 padding: const EdgeInsets.all(AppSpacing.m),
                 decoration: BoxDecoration(
                   color: AppColors.secondaryD.withValues(alpha: 0.12),
@@ -528,6 +530,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Icon(Icons.open_in_new, size: 14, color: AppColors.secondaryD.withValues(alpha: 0.7)),
                   ],
                 ),
+              ),
               ),
             ),
           ],

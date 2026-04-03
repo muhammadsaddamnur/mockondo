@@ -579,6 +579,29 @@ class _SidebarListState extends State<_SidebarList> {
   String? _hoverGroup; // group id being hovered
   bool _hoverUngroup = false;
 
+  // Multi-select state
+  final _selectedIds = <String>{};
+  bool get _hasMultiSelection => _selectedIds.length > 1;
+
+  bool _isCtrlHeld() =>
+      HardwareKeyboard.instance.isControlPressed ||
+      HardwareKeyboard.instance.isMetaPressed;
+
+  void _handleReqTap(String id, int reqIdx) {
+    if (_isCtrlHeld()) {
+      setState(() {
+        if (_selectedIds.contains(id)) {
+          _selectedIds.remove(id);
+        } else {
+          _selectedIds.add(id);
+        }
+      });
+    } else {
+      if (_selectedIds.isNotEmpty) setState(() => _selectedIds.clear());
+      widget.ctrl.selectRequest(reqIdx);
+    }
+  }
+
   void _startDrag(String id) => setState(() => _draggingId = id);
 
   void _endDrag() => setState(() {
@@ -596,17 +619,27 @@ class _SidebarListState extends State<_SidebarList> {
 
   void _dropOnGroup(String reqId, String groupId) {
     final ctrl = widget.ctrl;
-    final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
-    if (reqIdx != -1 && ctrl.requests[reqIdx].groupId != groupId) {
-      ctrl.moveRequestToGroup(reqIdx, groupId);
+    if (_selectedIds.contains(reqId) && _selectedIds.length > 1) {
+      ctrl.moveRequestsToGroup(_selectedIds.toList(), groupId);
+      setState(() => _selectedIds.clear());
+    } else {
+      final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
+      if (reqIdx != -1 && ctrl.requests[reqIdx].groupId != groupId) {
+        ctrl.moveRequestToGroup(reqIdx, groupId);
+      }
     }
     _endDrag();
   }
 
   void _dropToUngroup(String reqId) {
     final ctrl = widget.ctrl;
-    final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
-    if (reqIdx != -1) ctrl.moveRequestToGroup(reqIdx, null);
+    if (_selectedIds.contains(reqId) && _selectedIds.length > 1) {
+      ctrl.moveRequestsToGroup(_selectedIds.toList(), null);
+      setState(() => _selectedIds.clear());
+    } else {
+      final reqIdx = ctrl.requests.indexWhere((r) => r.id == reqId);
+      if (reqIdx != -1) ctrl.moveRequestToGroup(reqIdx, null);
+    }
     _endDrag();
   }
 
@@ -649,6 +682,7 @@ class _SidebarListState extends State<_SidebarList> {
             ),
           ),
           _ungroupZone(visible: draggingGrouped),
+          _multiActionBar(),
         ],
       );
     });
@@ -745,10 +779,13 @@ class _SidebarListState extends State<_SidebarList> {
 
   Widget _reqEntry(HttpRequestItem req, List<Object> flat, BuildContext context) {
     final reqIdx = widget.ctrl.requests.indexOf(req);
+    final isMultiSelected = _selectedIds.contains(req.id);
     final row = _ReqRow(
       req: req,
       reqIdx: reqIdx,
       ctrl: widget.ctrl,
+      isMultiSelected: isMultiSelected,
+      onTap: () => _handleReqTap(req.id, reqIdx),
       onContextMenu: (pos) => widget.onRequestContextMenu(context, widget.ctrl, reqIdx, pos),
     );
     return Draggable<String>(
@@ -766,12 +803,77 @@ class _SidebarListState extends State<_SidebarList> {
               borderRadius: BorderRadius.circular(4),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3))],
             ),
-            child: row,
+            child: isMultiSelected && _selectedIds.length > 1
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      row,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s, vertical: 2),
+                        margin: const EdgeInsets.only(right: AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondaryD,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${_selectedIds.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  )
+                : row,
           ),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.3, child: row),
       child: row,
+    );
+  }
+
+  Widget _multiActionBar() {
+    if (_selectedIds.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+      decoration: BoxDecoration(
+        color: AppColors.secondaryD.withValues(alpha: 0.12),
+        border: Border(top: BorderSide(color: AppColors.secondaryD.withValues(alpha: 0.3))),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '${_selectedIds.length} selected',
+            style: TextStyle(color: AppColors.secondaryD, fontSize: AppTextSize.small, fontWeight: FontWeight.w600),
+          ),
+          const Spacer(),
+          Tooltip(
+            message: 'Delete selected',
+            child: InkWell(
+              onTap: () {
+                widget.ctrl.deleteRequests(_selectedIds.toList());
+                setState(() => _selectedIds.clear());
+              },
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(Icons.delete_outline, size: 16, color: AppColors.red),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Tooltip(
+            message: 'Clear selection',
+            child: InkWell(
+              onTap: () => setState(() => _selectedIds.clear()),
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(Icons.close, size: 14, color: AppColors.textD.withValues(alpha: 0.5)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -854,25 +956,32 @@ class _ReqRow extends StatelessWidget {
     required this.reqIdx,
     required this.ctrl,
     required this.onContextMenu,
+    required this.onTap,
+    this.isMultiSelected = false,
   });
 
   final HttpRequestItem req;
   final int reqIdx;
   final HttpClientController ctrl;
   final void Function(Offset) onContextMenu;
+  final VoidCallback onTap;
+  final bool isMultiSelected;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final isSelected = ctrl.selectedIndex.value == reqIdx;
+      final highlighted = isSelected || isMultiSelected;
       return GestureDetector(
         onSecondaryTapDown: (d) => onContextMenu(d.globalPosition),
         child: InkWell(
-          onTap: () => ctrl.selectRequest(reqIdx),
+          onTap: onTap,
           child: Container(
-            color: isSelected
-                ? AppColors.secondaryD.withValues(alpha: 0.2)
-                : Colors.transparent,
+            color: isMultiSelected
+                ? AppColors.secondaryD.withValues(alpha: 0.25)
+                : isSelected
+                    ? AppColors.secondaryD.withValues(alpha: 0.2)
+                    : Colors.transparent,
             padding: EdgeInsets.only(
               left: req.groupId != null ? 20 : 10,
               right: 10,
@@ -881,6 +990,11 @@ class _ReqRow extends StatelessWidget {
             ),
             child: Row(
               children: [
+                if (isMultiSelected)
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.xs),
+                    child: Icon(Icons.check_circle, size: 12, color: AppColors.secondaryD),
+                  ),
                 _MethodBadge(method: req.method),
                 const SizedBox(width: AppSpacing.s),
                 Expanded(
@@ -891,7 +1005,7 @@ class _ReqRow extends StatelessWidget {
                     style: TextStyle(
                       color: AppColors.textD,
                       fontSize: AppTextSize.small,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: highlighted ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),

@@ -104,6 +104,30 @@ class HttpClientController extends GetxController {
     _save();
   }
 
+  /// Removes all requests whose IDs are in [ids].
+  void deleteRequests(List<String> ids) {
+    final idSet = ids.toSet();
+    final selId = requests.isEmpty ? null : requests[selectedIndex.value].id;
+    requests.removeWhere((r) => idSet.contains(r.id));
+    if (requests.isEmpty) {
+      response.value = null;
+    } else {
+      final newSel = selId != null ? requests.indexWhere((r) => r.id == selId) : -1;
+      selectedIndex.value = newSel != -1 ? newSel : (requests.length - 1).clamp(0, requests.length - 1);
+    }
+    _save();
+  }
+
+  /// Moves all requests whose IDs are in [ids] into [groupId] (or ungrouped when null).
+  void moveRequestsToGroup(List<String> ids, String? groupId) {
+    final idSet = ids.toSet();
+    for (final req in requests) {
+      if (idSet.contains(req.id)) req.groupId = groupId;
+    }
+    requests.refresh();
+    _save();
+  }
+
   /// Replaces the selected request with [updated] and persists.
   void updateSelected(HttpRequestItem updated) {
     if (requests.isEmpty) return;
