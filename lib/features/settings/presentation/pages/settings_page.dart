@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/features/settings/presentation/controllers/settings_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum _SettingsTab {
   remoteServer('Remote Server', Icons.cloud),
@@ -517,6 +518,57 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             )),
+            const SizedBox(height: AppSpacing.xxl),
+            _label('Support'),
+            const SizedBox(height: AppSpacing.m),
+            GestureDetector(
+              onTap: () async {
+                final url = Uri.parse('https://github.com/sponsors/muhammadsaddamnur');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.m),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryD.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppColors.secondaryD.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.favorite, size: 16, color: AppColors.secondaryD),
+                    const SizedBox(width: AppSpacing.s),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sponsor on GitHub',
+                            style: const TextStyle(
+                              color: AppColors.secondaryD,
+                              fontSize: AppTextSize.body,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Support Mockondo development by sponsoring @muhammadsaddamnur',
+                            style: TextStyle(
+                              color: AppColors.textD.withValues(alpha: 0.5),
+                              fontSize: AppTextSize.small,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.open_in_new, size: 14, color: AppColors.secondaryD.withValues(alpha: 0.7)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
