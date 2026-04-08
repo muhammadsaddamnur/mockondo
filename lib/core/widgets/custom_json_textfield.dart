@@ -67,18 +67,34 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
             onPressed: () {
               try {
                 // Ambil teks dari controller
-                final rawText = widget.controller.codeLines.segments
+                var rawText = widget.controller.codeLines.segments
                     .expand((e) => e)
                     .map((e) => e.text)
                     .join('\n');
 
-                // Parse JSON dari string
+                // Extract dan simpan placeholder interpolasi
+                final placeholders = <String, String>{};
+                var index = 0;
+                final placeholderRegex = RegExp(r'\$\{[^}]+\}');
+                rawText = rawText.replaceAllMapped(placeholderRegex, (match) {
+                  final placeholder = '__PLACEHOLDER_${index}__';
+                  placeholders[placeholder] = match.group(0)!;
+                  index++;
+                  return placeholder;
+                });
+
+                // Parse JSON dari string (tanpa placeholder)
                 final jsonObject = json.decode(rawText);
 
                 // Encode ulang dengan indentasi supaya rapi
-                final prettyString = const JsonEncoder.withIndent(
+                var prettyString = const JsonEncoder.withIndent(
                   '  ',
                 ).convert(jsonObject);
+
+                // Restore placeholder kembali
+                placeholders.forEach((placeholder, original) {
+                  prettyString = prettyString.replaceAll(placeholder, original);
+                });
 
                 // Ubah string jadi CodeLines untuk controller
                 final beautifiedCodeLines = toCodeLines(prettyString);

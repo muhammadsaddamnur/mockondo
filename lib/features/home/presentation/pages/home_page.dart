@@ -885,6 +885,23 @@ class _HomePageState extends State<HomePage> {
                             }
 
                             // ── HTTP endpoint list ────────────────────────────
+                            if (homeController
+                                        .mockModels[homeController
+                                            .selectedMockModelIndex
+                                            .value]!
+                                        .mockModels.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'No HTTP endpoints. Add one to get started.',
+                                    style: TextStyle(
+                                      color: AppColors.textD.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      fontSize: AppTextSize.small,
+                                    ),
+                                  ),
+                                );
+                              }
                             return ListView.builder(
                               itemCount:
                                   homeController

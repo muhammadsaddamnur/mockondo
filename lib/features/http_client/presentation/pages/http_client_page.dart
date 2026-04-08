@@ -7,6 +7,7 @@ import 'package:mockondo/core/curl_utils.dart';
 import 'package:mockondo/core/interpolation.dart';
 import 'package:mockondo/core/widgets/app_tab_bar.dart';
 import 'package:mockondo/core/widgets/button_widget.dart';
+import 'package:mockondo/core/widgets/chip_start.dart' show ChipStart;
 import 'package:mockondo/core/widgets/custom_json_textfield.dart';
 import 'package:mockondo/core/widgets/custom_textfield.dart';
 import 'package:mockondo/core/widgets/interpolation_textfield.dart';
@@ -165,10 +166,15 @@ class _HttpClientPageState extends State<HttpClientPage> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.m),
-                    ElevatedButton(
-                      onPressed: ctrl.addRequest,
-                      style: ButtonStyle(elevation: WidgetStatePropertyAll(0)),
-                      child: const Text('New Request'),
+                    SizedBox(
+                      width: 200,
+                      child: ButtonWidget(
+                        onTap: () async {
+                          ctrl.addRequest();
+                        },
+                        color: AppColors.secondaryD,
+                        child: const Text('New Request'),
+                      ),
                     ),
                   ],
                 ),
