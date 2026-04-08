@@ -798,8 +798,36 @@ class _SidebarListState extends State<_SidebarList> {
     );
   }
 
+  void _handleGroupTap(HttpRequestGroup group) {
+    final ctrl = widget.ctrl;
+    if (_isCtrlHeld() || _isShiftHeld()) {
+      // Select/deselect all requests in this group
+      final groupReqIds = ctrl.requests
+          .where((r) => r.groupId == group.id)
+          .map((r) => r.id)
+          .toSet();
+      setState(() {
+        final allSelected = groupReqIds.every((id) => _selectedIds.contains(id));
+        if (allSelected) {
+          _selectedIds.removeAll(groupReqIds);
+        } else {
+          _selectedIds.addAll(groupReqIds);
+        }
+      });
+    } else {
+      if (_selectedIds.isNotEmpty) setState(() => _selectedIds.clear());
+      ctrl.toggleGroup(group.id);
+    }
+  }
+
   Widget _groupEntry(HttpRequestGroup group, BuildContext context) {
     final hovering = _hoverGroup == group.id;
+    final groupReqIds = widget.ctrl.requests
+        .where((r) => r.groupId == group.id)
+        .map((r) => r.id)
+        .toSet();
+    final isGroupSelected = groupReqIds.isNotEmpty &&
+        groupReqIds.every((id) => _selectedIds.contains(id));
     return DragTarget<String>(
       onWillAcceptWithDetails: (_) {
         setState(() { _hoverGroup = group.id; _hoverInsert = null; });
@@ -811,6 +839,8 @@ class _SidebarListState extends State<_SidebarList> {
         group: group,
         ctrl: widget.ctrl,
         isDropTarget: hovering || candidate.isNotEmpty,
+        isGroupSelected: isGroupSelected,
+        onTap: () => _handleGroupTap(group),
         onContextMenu: (pos) => widget.onGroupContextMenu(context, widget.ctrl, group, pos),
       ),
     );
@@ -891,7 +921,21 @@ class _SidebarListState extends State<_SidebarList> {
             message: 'Delete selected',
             child: InkWell(
               onTap: () {
-                widget.ctrl.deleteRequests(_selectedIds.toList());
+                final ctrl = widget.ctrl;
+                final ids = _selectedIds.toList();
+                // Find groups that will become empty after delete
+                final emptyGroupIds = ctrl.groups
+                    .where((g) {
+                      final groupReqs = ctrl.requests.where((r) => r.groupId == g.id).toList();
+                      return groupReqs.isNotEmpty &&
+                          groupReqs.every((r) => ids.contains(r.id));
+                    })
+                    .map((g) => g.id)
+                    .toList();
+                ctrl.deleteRequests(ids);
+                for (final gid in emptyGroupIds) {
+                  ctrl.deleteGroup(gid);
+                }
                 setState(() => _selectedIds.clear());
               },
               borderRadius: BorderRadius.circular(4),
@@ -926,26 +970,32 @@ class _GroupRow extends StatelessWidget {
     required this.group,
     required this.ctrl,
     required this.onContextMenu,
+    required this.onTap,
     this.isDropTarget = false,
+    this.isGroupSelected = false,
   });
 
   final HttpRequestGroup group;
   final HttpClientController ctrl;
   final void Function(Offset) onContextMenu;
+  final VoidCallback onTap;
   final bool isDropTarget;
+  final bool isGroupSelected;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onSecondaryTapDown: (d) => onContextMenu(d.globalPosition),
       child: InkWell(
-        onTap: () => ctrl.toggleGroup(group.id),
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 100),
           decoration: BoxDecoration(
             color: isDropTarget
                 ? AppColors.secondaryD.withValues(alpha: 0.15)
-                : Colors.transparent,
+                : isGroupSelected
+                    ? AppColors.secondaryD.withValues(alpha: 0.25)
+                    : Colors.transparent,
             border: isDropTarget
                 ? Border.all(color: AppColors.secondaryD.withValues(alpha: 0.5))
                 : null,
