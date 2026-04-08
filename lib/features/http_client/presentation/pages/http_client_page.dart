@@ -682,10 +682,40 @@ class _SidebarListState extends State<_SidebarList> {
     _endDrag();
   }
 
+  void _deleteSelected() {
+    final ctrl = widget.ctrl;
+    if (_selectedIds.isEmpty) return;
+    final ids = _selectedIds.toList();
+    final emptyGroupIds = ctrl.groups
+        .where((g) {
+          final groupReqs = ctrl.requests.where((r) => r.groupId == g.id).toList();
+          return groupReqs.isNotEmpty &&
+              groupReqs.every((r) => ids.contains(r.id));
+        })
+        .map((g) => g.id)
+        .toList();
+    ctrl.deleteRequests(ids);
+    for (final gid in emptyGroupIds) {
+      ctrl.deleteGroup(gid);
+    }
+    setState(() => _selectedIds.clear());
+  }
+
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    return Obx(() {
+    return KeyboardListener(
+      focusNode: FocusNode(),
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.delete ||
+             event.logicalKey == LogicalKeyboardKey.backspace) &&
+            _selectedIds.isNotEmpty) {
+          _deleteSelected();
+        }
+      },
+      child: Obx(() {
       final flat = ctrl.buildVisibleFlatList();
       if (flat.isEmpty) {
         return Center(
@@ -724,7 +754,8 @@ class _SidebarListState extends State<_SidebarList> {
           _multiActionBar(),
         ],
       );
-    });
+    }),
+    );
   }
 
   Widget _ungroupZone({bool visible = false}) {
@@ -920,24 +951,7 @@ class _SidebarListState extends State<_SidebarList> {
           Tooltip(
             message: 'Delete selected',
             child: InkWell(
-              onTap: () {
-                final ctrl = widget.ctrl;
-                final ids = _selectedIds.toList();
-                // Find groups that will become empty after delete
-                final emptyGroupIds = ctrl.groups
-                    .where((g) {
-                      final groupReqs = ctrl.requests.where((r) => r.groupId == g.id).toList();
-                      return groupReqs.isNotEmpty &&
-                          groupReqs.every((r) => ids.contains(r.id));
-                    })
-                    .map((g) => g.id)
-                    .toList();
-                ctrl.deleteRequests(ids);
-                for (final gid in emptyGroupIds) {
-                  ctrl.deleteGroup(gid);
-                }
-                setState(() => _selectedIds.clear());
-              },
+              onTap: _deleteSelected,
               borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.xs),
