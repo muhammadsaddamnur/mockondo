@@ -24,6 +24,8 @@ class HttpClientPage extends StatefulWidget {
 }
 
 class _HttpClientPageState extends State<HttpClientPage> {
+  double _sidebarWidth = 200;
+
   @override
   Widget build(BuildContext context) {
     final ctrl = Get.put(HttpClientController());
@@ -54,7 +56,7 @@ class _HttpClientPageState extends State<HttpClientPage> {
       children: [
         // ── Left sidebar: saved requests ──────────────────────────────
         SizedBox(
-          width: 200,
+          width: _sidebarWidth,
           child: Column(
             children: [
               Padding(
@@ -124,7 +126,22 @@ class _HttpClientPageState extends State<HttpClientPage> {
           ),
         ),
 
-        VerticalDivider(width: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+        // ── Resizable divider ──────────────────────────────────────────
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: GestureDetector(
+            onHorizontalDragUpdate: (d) {
+              setState(() {
+                _sidebarWidth = (_sidebarWidth + d.delta.dx).clamp(140.0, 400.0);
+              });
+            },
+            child: Container(
+              width: 5,
+              color: Colors.transparent,
+              child: VerticalDivider(width: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+            ),
+          ),
+        ),
 
         // ── Main: request editor + response ──────────────────────────
         Expanded(
@@ -1055,6 +1072,7 @@ class _RequestEditor extends StatefulWidget {
 class _RequestEditorState extends State<_RequestEditor> {
   int _reqTab = 0; // 0=params, 1=headers, 2=body
   int _resTab = 0; // 0=body, 1=headers
+  double _splitRatio = 0.4; // fraction for request pane height
 
   HttpClientController get ctrl => widget.ctrl;
 
@@ -1240,11 +1258,15 @@ class _RequestEditorState extends State<_RequestEditor> {
 
           // ── Split: request config top / response bottom ────────────
           Expanded(
-            child: Column(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final totalH = constraints.maxHeight;
+                final topH = (totalH * _splitRatio).clamp(80.0, totalH - 80.0);
+                return Column(
               children: [
                 // Request tabs (params/headers/body)
-                Expanded(
-                  flex: 4,
+                SizedBox(
+                  height: topH,
                   child: Column(
                     children: [
                       AppTabBar(
@@ -1292,11 +1314,25 @@ class _RequestEditorState extends State<_RequestEditor> {
                   ),
                 ),
 
-                Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+                // ── Draggable horizontal divider ──────────────────────
+                MouseRegion(
+                  cursor: SystemMouseCursors.resizeRow,
+                  child: GestureDetector(
+                    onVerticalDragUpdate: (d) {
+                      setState(() {
+                        _splitRatio = (_splitRatio + d.delta.dy / totalH).clamp(0.15, 0.85);
+                      });
+                    },
+                    child: Container(
+                      height: 5,
+                      color: Colors.transparent,
+                      child: Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.15)),
+                    ),
+                  ),
+                ),
 
                 // Response section
                 Expanded(
-                  flex: 5,
                   child: Obx(() => _ResponsePanel(
                     response: ctrl.response.value,
                     error: ctrl.errorMessage.value,
@@ -1306,7 +1342,9 @@ class _RequestEditorState extends State<_RequestEditor> {
                   )),
                 ),
               ],
-            ),
+            );
+          },
+        ),
           ),
         ],
       );
