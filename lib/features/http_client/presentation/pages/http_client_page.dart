@@ -335,14 +335,29 @@ class _HttpClientPageState extends State<HttpClientPage> {
               Text('Delete ${selectedIds.length} selected', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
             ]),
           ),
-        PopupMenuItem(
-          onTap: () => ctrl.duplicateRequest(index),
-          child: Row(children: [
-            Icon(Icons.copy, size: 13, color: AppColors.textD),
-            const SizedBox(width: AppSpacing.m),
-            Text('Duplicate', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
-          ]),
-        ),
+        if (hasMultiSelection)
+          PopupMenuItem(
+            onTap: () {
+              for (final id in selectedIds) {
+                final idx = ctrl.requests.indexWhere((r) => r.id == id);
+                if (idx != -1) ctrl.duplicateRequest(idx);
+              }
+            },
+            child: Row(children: [
+              Icon(Icons.copy, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text('Duplicate ${selectedIds.length} selected', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+            ]),
+          )
+        else
+          PopupMenuItem(
+            onTap: () => ctrl.duplicateRequest(index),
+            child: Row(children: [
+              Icon(Icons.copy, size: 13, color: AppColors.textD),
+              const SizedBox(width: AppSpacing.m),
+              Text('Duplicate', style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
+            ]),
+          ),
         if (ctrl.groups.isNotEmpty)
           PopupMenuItem(
             onTap: () => _showMoveToGroupDialog(ctrl, index),
@@ -353,14 +368,15 @@ class _HttpClientPageState extends State<HttpClientPage> {
                   style: TextStyle(color: AppColors.textD, fontSize: AppTextSize.body)),
             ]),
           ),
-        PopupMenuItem(
-          onTap: () => ctrl.deleteRequest(index),
-          child: Row(children: [
-            Icon(Icons.delete_outline, size: 13, color: AppColors.red),
-            const SizedBox(width: AppSpacing.m),
-            Text('Delete', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
-          ]),
-        ),
+        if(!hasMultiSelection)
+          PopupMenuItem(
+            onTap: () => ctrl.deleteRequest(index),
+            child: Row(children: [
+              Icon(Icons.delete_outline, size: 13, color: AppColors.red),
+              const SizedBox(width: AppSpacing.m),
+              Text('Delete', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
+            ]),
+          ),
       ],
     );
   }
