@@ -300,14 +300,41 @@ class _HttpClientPageState extends State<HttpClientPage> {
     BuildContext context,
     HttpClientController ctrl,
     int index,
-    Offset position,
-  ) {
+    Offset position, {
+    Set<String> selectedIds = const {},
+    VoidCallback? onClearSelection,
+  }) {
     final req = ctrl.requests[index];
+    final hasMultiSelection = selectedIds.length > 1 && selectedIds.contains(req.id);
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
       color: AppColors.backgroundD,
       items: [
+        if (hasMultiSelection)
+          PopupMenuItem(
+            onTap: () {
+              final ids = selectedIds.toList();
+              final emptyGroupIds = ctrl.groups
+                  .where((g) {
+                    final groupReqs = ctrl.requests.where((r) => r.groupId == g.id).toList();
+                    return groupReqs.isNotEmpty &&
+                        groupReqs.every((r) => ids.contains(r.id));
+                  })
+                  .map((g) => g.id)
+                  .toList();
+              ctrl.deleteRequests(ids);
+              for (final gid in emptyGroupIds) {
+                ctrl.deleteGroup(gid);
+              }
+              onClearSelection?.call();
+            },
+            child: Row(children: [
+              Icon(Icons.delete_sweep_outlined, size: 13, color: AppColors.red),
+              const SizedBox(width: AppSpacing.m),
+              Text('Delete ${selectedIds.length} selected', style: TextStyle(color: AppColors.red, fontSize: AppTextSize.body)),
+            ]),
+          ),
         PopupMenuItem(
           onTap: () => ctrl.duplicateRequest(index),
           child: Row(children: [
@@ -583,7 +610,7 @@ class _SidebarList extends StatefulWidget {
   });
 
   final HttpClientController ctrl;
-  final void Function(BuildContext, HttpClientController, int, Offset) onRequestContextMenu;
+  final void Function(BuildContext, HttpClientController, int, Offset, {Set<String> selectedIds, VoidCallback? onClearSelection}) onRequestContextMenu;
   final void Function(BuildContext, HttpClientController, HttpRequestGroup, Offset) onGroupContextMenu;
 
   @override
@@ -886,7 +913,11 @@ class _SidebarListState extends State<_SidebarList> {
       ctrl: widget.ctrl,
       isMultiSelected: isMultiSelected,
       onTap: () => _handleReqTap(req.id, reqIdx),
-      onContextMenu: (pos) => widget.onRequestContextMenu(context, widget.ctrl, reqIdx, pos),
+      onContextMenu: (pos) => widget.onRequestContextMenu(
+        context, widget.ctrl, reqIdx, pos,
+        selectedIds: _selectedIds,
+        onClearSelection: () => setState(() => _selectedIds.clear()),
+      ),
     );
     return Draggable<String>(
       data: req.id,
