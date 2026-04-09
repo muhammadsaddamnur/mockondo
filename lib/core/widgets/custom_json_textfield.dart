@@ -72,16 +72,34 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                     .map((e) => e.text)
                     .join('\n');
 
-                // Extract dan simpan placeholder interpolasi
-                final placeholders = <String, String>{};
-                var index = 0;
-                final placeholderRegex = RegExp(r'\$\{[^}]+\}');
-                rawText = rawText.replaceAllMapped(placeholderRegex, (match) {
-                  final placeholder = '__PLACEHOLDER_${index}__';
-                  placeholders[placeholder] = match.group(0)!;
-                  index++;
-                  return placeholder;
-                });
+                // Extract dan simpan placeholder interpolasi.
+                // Dua kasus:
+                //   1. "${...}"  → already quoted  → simpan termasuk quote
+                //   2.  ${...}   → bare (angka/array) → simpan tanpa quote, bungkus sementara
+                final placeholders = <String, String>{}; // key → original (incl. or excl. quotes)
+                var pIdx = 0;
+
+                // Case 1: quoted interpolation  "... ${} ..."
+                rawText = rawText.replaceAllMapped(
+                  RegExp(r'"([^"]*\$\{[^}]+\}[^"]*)"'),
+                  (m) {
+                    final key = '__PI${pIdx}__';
+                    placeholders[key] = m.group(0)!; // includes outer "
+                    pIdx++;
+                    return '"$key"';
+                  },
+                );
+
+                // Case 2: bare interpolation (no surrounding quotes)
+                rawText = rawText.replaceAllMapped(
+                  RegExp(r'\$\{[^}]+\}'),
+                  (m) {
+                    final key = '__PI${pIdx}__';
+                    placeholders[key] = m.group(0)!; // no outer "
+                    pIdx++;
+                    return '"$key"'; // wrap in quotes so JSON is valid
+                  },
+                );
 
                 // Parse JSON dari string (tanpa placeholder)
                 final jsonObject = json.decode(rawText);
@@ -92,8 +110,10 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                 ).convert(jsonObject);
 
                 // Restore placeholder kembali
-                placeholders.forEach((placeholder, original) {
-                  prettyString = prettyString.replaceAll(placeholder, original);
+                // Baik case 1 maupun 2, di prettyString muncul sebagai "key"
+                // — ganti '"key"' dengan original (yang sudah ada/tidak ada quote)
+                placeholders.forEach((key, original) {
+                  prettyString = prettyString.replaceAll('"$key"', original);
                 });
 
                 // Ubah string jadi CodeLines untuk controller
