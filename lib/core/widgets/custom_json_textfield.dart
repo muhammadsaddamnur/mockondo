@@ -57,10 +57,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
             onPressed: () {
               try {
                 // Ambil teks dari controller
-                var rawText = widget.controller.codeLines.segments
-                    .expand((e) => e)
-                    .map((e) => e.text)
-                    .join('\n');
+                var rawText = widget.controller.text;
 
                 // Extract dan simpan placeholder interpolasi.
                 // Dua kasus:
@@ -106,8 +103,10 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                   prettyString = prettyString.replaceAll('"$key"', original);
                 });
 
-                // Update controller langsung via .text (re_editor API)
-                widget.controller.text = prettyString;
+                // Update controller dan trigger rebuild
+                setState(() {
+                  widget.controller.text = prettyString;
+                });
                 widget.onChanged?.call(prettyString);
               } catch (e) {
                 // Kalau gagal parse, tampilkan error atau abaikan
