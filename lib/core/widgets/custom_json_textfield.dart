@@ -103,10 +103,10 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                   prettyString = prettyString.replaceAll('"$key"', original);
                 });
 
-                // Update controller dan trigger rebuild
-                setState(() {
-                  widget.controller.text = prettyString;
-                });
+                // clearHistory dulu supaya re_editor reset internal state,
+                // lalu set text baru
+                widget.controller.clearHistory();
+                widget.controller.text = prettyString;
                 widget.onChanged?.call(prettyString);
               } catch (e) {
                 // Kalau gagal parse, tampilkan error atau abaikan
