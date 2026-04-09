@@ -89,28 +89,39 @@ class JsonToCodePage extends StatelessWidget {
                 title: 'Generated Code',
                 trailing: Row(
                   children: [
-                    // Language chips
-                    Obx(
-                      () => SizedBox(
-                        width: 320,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children:
-                                JsonToCodeController.languages
-                                    .map(
-                                      (lang) => _LangChip(
-                                        label: lang,
-                                        selected:
-                                            ctrl.selectedLanguage.value == lang,
-                                        onTap: () => ctrl.selectLanguage(lang),
-                                      ),
-                                    )
-                                    .toList(),
+                    // Language selector button
+                    Obx(() => InkWell(
+                      onTap: () => _showLanguageDialog(context, ctrl),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.m,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondaryD.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: AppColors.secondaryD.withValues(alpha: 0.3),
                           ),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              ctrl.selectedLanguage.value,
+                              style: TextStyle(
+                                fontSize: AppTextSize.small,
+                                color: AppColors.secondaryD,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Icon(Icons.arrow_drop_down, size: 14, color: AppColors.secondaryD),
+                          ],
+                        ),
                       ),
-                    ),
+                    )),
                     const SizedBox(width: AppSpacing.xs),
                     // Settings
                     Tooltip(
@@ -166,6 +177,100 @@ class JsonToCodePage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showLanguageDialog(BuildContext context, JsonToCodeController ctrl) {
+    showDialog<void>(
+      context: context,
+      builder: (dlgCtx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 360,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundD,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.l, AppSpacing.m, AppSpacing.l),
+                child: Row(
+                  children: [
+                    Icon(Icons.code, size: 16, color: AppColors.textD),
+                    const SizedBox(width: AppSpacing.m),
+                    Expanded(
+                      child: Text(
+                        'Select Language',
+                        style: TextStyle(
+                          color: AppColors.textD,
+                          fontSize: AppTextSize.title,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.pop(dlgCtx),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.s),
+                        child: Icon(Icons.close, size: 14, color: AppColors.textD.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: AppColors.textD.withValues(alpha: 0.12)),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.m),
+                child: Obx(() => Wrap(
+                  spacing: AppSpacing.s,
+                  runSpacing: AppSpacing.s,
+                  children: JsonToCodeController.languages.map((lang) {
+                    final selected = ctrl.selectedLanguage.value == lang;
+                    return InkWell(
+                      onTap: () {
+                        ctrl.selectLanguage(lang);
+                        Navigator.pop(dlgCtx);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.m,
+                          vertical: AppSpacing.s,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.secondaryD.withValues(alpha: 0.15)
+                              : AppColors.surfaceD.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.secondaryD.withValues(alpha: 0.45)
+                                : AppColors.textD.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        child: Text(
+                          lang,
+                          style: TextStyle(
+                            fontSize: AppTextSize.body,
+                            color: selected
+                                ? AppColors.secondaryD
+                                : AppColors.textD.withValues(alpha: 0.7),
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                )),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
