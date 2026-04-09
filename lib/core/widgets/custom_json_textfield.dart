@@ -42,16 +42,6 @@ class CustomJsonTextField extends StatefulWidget {
 class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
   static final _promptsBuilder = InterpolationPromptsBuilder();
 
-  CodeLines toCodeLines(String input) {
-    final lines = input.split('\n');
-    // Setiap baris dibungkus jadi CodeLine, lalu jadi CodeLineSegment (karena segmen punya list of CodeLine)
-    final segments =
-        lines
-            .map((line) => CodeLineSegment(codeLines: [CodeLine(line)]))
-            .toList();
-    return CodeLines(segments);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -116,13 +106,9 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                   prettyString = prettyString.replaceAll('"$key"', original);
                 });
 
-                // Ubah string jadi CodeLines untuk controller
-                final beautifiedCodeLines = toCodeLines(prettyString);
-
-                // Update controller
-                setState(() {
-                  widget.controller.codeLines = beautifiedCodeLines;
-                });
+                // Update controller langsung via .text (re_editor API)
+                widget.controller.text = prettyString;
+                widget.onChanged?.call(prettyString);
               } catch (e) {
                 // Kalau gagal parse, tampilkan error atau abaikan
                 print('JSON format error: $e');
