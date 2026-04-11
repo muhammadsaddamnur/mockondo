@@ -16,6 +16,7 @@ import 'package:mockondo/features/home/presentation/widgets/ws_endpoint_widget.d
 import 'package:mockondo/features/http_client/presentation/pages/http_client_page.dart';
 import 'package:mockondo/features/json_to_code/presentation/pages/json_to_code_page.dart';
 import 'package:mockondo/features/mock_s3/presentation/pages/mock_s3_page.dart';
+import 'package:mockondo/core/export_import_service.dart';
 import 'package:mockondo/features/settings/presentation/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -277,6 +278,8 @@ class _HomePageState extends State<HomePage> {
                   selected: _mode == _AppMode.settings,
                   onTap: () => setState(() => _mode = _AppMode.settings),
                 ),
+                const SizedBox(height: AppSpacing.xs),
+                _ImportExportIcon(),
                 const SizedBox(height: AppSpacing.m),
               ],
             ),
@@ -1114,6 +1117,64 @@ class _ActivityIcon extends StatelessWidget {
                 selected
                     ? AppColors.secondaryD
                     : AppColors.textD.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Import / Export icon ──────────────────────────────────────────────────────
+
+class _ImportExportIcon extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Import / Export Project',
+      preferBelow: false,
+      child: PopupMenuButton<String>(
+        offset: const Offset(44, 0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        tooltip: '',
+        onSelected: (value) async {
+          if (value == 'export') {
+            await ExportImportService.export(context);
+          } else if (value == 'import') {
+            await ExportImportService.import(context);
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: 'export',
+            child: Row(
+              children: [
+                Icon(Icons.upload_outlined, size: 16, color: AppColors.textD.withValues(alpha: 0.7)),
+                const SizedBox(width: 8),
+                Text('Export Project', style: TextStyle(fontSize: AppTextSize.small)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'import',
+            child: Row(
+              children: [
+                Icon(Icons.download_outlined, size: 16, color: AppColors.textD.withValues(alpha: 0.7)),
+                const SizedBox(width: 8),
+                Text('Import Project', style: TextStyle(fontSize: AppTextSize.small)),
+              ],
+            ),
+          ),
+        ],
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            Icons.more_horiz_rounded,
+            size: 20,
+            color: AppColors.textD.withValues(alpha: 0.5),
           ),
         ),
       ),

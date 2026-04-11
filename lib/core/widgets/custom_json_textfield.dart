@@ -116,7 +116,9 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
             child: Text('Beautify', style: TextStyle(fontSize: AppTextSize.badge)),
           ),
           Expanded(
-            child: CodeAutocomplete(
+            child: Shortcuts(
+              shortcuts: const <ShortcutActivator, Intent>{},
+              child: CodeAutocomplete(
               viewBuilder: buildInterpolationAutocompleteView,
               promptsBuilder: _promptsBuilder,
               child: CodeEditor(
@@ -174,6 +176,7 @@ class _CustomJsonTextFieldState extends State<CustomJsonTextField> {
                 ),
                 hintTextColor: AppColors.textD.withValues(alpha: 0.5),
               ),
+            ),
             ),
             ),
           ),

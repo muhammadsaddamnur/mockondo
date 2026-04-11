@@ -6,7 +6,12 @@
       "Bash(grep -i \"background\\\\|#f\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_highlight-*/lib/styles/atom-one-light.dart)",
       "Bash(grep -r \"autocomplete\\\\|AutoComplete\\\\|Completion\\\\|completion\\\\|suggestion\\\\|Suggestion\" /Users/muhammadsaddamnur/.pub-cache/hosted/pub.dev/re_editor-*/lib/ --include=\"*.dart\" -l)",
       "Bash(git commit -m ':*)",
-      "Bash(dart run -e ':*)"
+      "Bash(dart run -e ':*)",
+      "Bash(dart pub:*)",
+      "Bash(convert --version)",
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL ok'\\)\")",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -)"
     ]
   }
 }

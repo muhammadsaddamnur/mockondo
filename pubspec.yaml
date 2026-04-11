@@ -39,7 +39,7 @@ dependencies:
   http: ^1.4.0
   math_expressions: ^3.1.0
   network_info_plus: ^6.1.4
-  re_editor: ^0.7.0
+  re_editor: ^0.8.0
   re_highlight: ^0.0.3
   shared_preferences: ^2.5.3
   shelf: ^1.4.2

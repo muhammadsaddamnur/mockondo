@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mockondo/core/colors.dart';
-import 'package:mockondo/core/export_import_service.dart';
 import 'package:mockondo/features/home/presentation/pages/home_page.dart';
 import 'package:window_size/window_size.dart';
 
@@ -65,26 +64,6 @@ class MyApp extends StatelessWidget {
                 const PlatformProvidedMenuItem(
                   type: PlatformProvidedMenuItemType.quit,
                 ),
-            ],
-          ),
-          // File menu — Export / Import.
-          PlatformMenu(
-            label: 'File',
-            menus: [
-              PlatformMenuItem(
-                label: 'Export Project……',
-                onSelected: () async {
-                  final ctx = Get.context;
-                  if (ctx != null) await ExportImportService.export(ctx);
-                },
-              ),
-              PlatformMenuItem(
-                label: 'Import Project…',
-                onSelected: () async {
-                  final ctx = Get.context;
-                  if (ctx != null) await ExportImportService.import(ctx);
-                },
-              ),
             ],
           ),
         ],
