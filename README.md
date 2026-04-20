@@ -56,6 +56,39 @@ Mockondo's interpolation engine resolves `${...}` placeholders inside response b
 | `${random.image.400x400.label}` | Placeholder image with `"label"` as text overlay |
 | `${random.index}` | Current item index (set by the pagination engine) |
 
+### `${:name}` — URL path parameters
+
+Use `${:name}` in the endpoint path to capture a dynamic segment. The captured value is then available in the response body using the same `${:name}` placeholder.
+
+| Endpoint path | Matches |
+|---|---|
+| `/users/${:id}` | `/users/123`, `/users/abc` |
+| `/a/${:code}/mobil/${:id}` | `/a/XYZ/mobil/99` |
+
+**Example:**
+
+Endpoint: `GET /products/${:category}/${:id}`
+
+Response body:
+```json
+{
+  "category": ${:category},
+  "id": ${:id},
+  "name": ${random.name}
+}
+```
+
+A request to `/products/electronics/42` returns:
+```json
+{
+  "category": "electronics",
+  "id": 42,
+  "name": "John Doe"
+}
+```
+
+> Numbers are returned without quotes; strings are JSON-encoded automatically.
+
 ### `request.*` — values from the incoming request
 
 | Placeholder | Description |

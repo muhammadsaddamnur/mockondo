@@ -495,12 +495,12 @@ E. PAGINATION WORKFLOW — you MUST do these two steps in order:
       'interpolationReference': {
         'CRITICAL_QUOTING_RULE':
             'Every \${...} placeholder is replaced with its JSON-encoded value internally. '
-            'ALL string-producing placeholders (random.uuid, random.name, random.email, random.url, random.jwt, random.date, random.lorem, random.username, random.phone, random.image.*, random.string.*, request.url.query.*, request.url.param.*, request.header.*, request.body.*, customdata.*, customdata.random.*) '
+            'ALL string-producing placeholders (random.uuid, random.name, random.email, random.url, random.jwt, random.date, random.lorem, random.username, random.phone, random.image.*, random.string.*, request.url.query.*, request.url.param.*, request.header.*, request.body.*, customdata.*, customdata.random.*, :paramName) '
             'already include their surrounding double-quotes in their output. '
             'You MUST NOT wrap them in extra quotes in your template. '
             'CORRECT:   {"id": \${random.uuid}, "name": \${random.name}}  →  {"id": "abc-uuid", "name": "John Doe"} '
             'INCORRECT: {"id": "\${random.uuid}", "name": "\${random.name}"}  →  {"id": ""abc-uuid"", "name": ""John Doe""} (INVALID JSON). '
-            'Number-producing placeholders (\${random.integer.*}, \${random.double.*}, \${math.*}) output raw numbers — no quotes added, none needed. '
+            'Number-producing placeholders (\${random.integer.*}, \${random.double.*}, \${math.*}, \${:paramName} when value is numeric) output raw numbers — no quotes added, none needed. '
             'Array-producing placeholder (\${pagination.data}) outputs a raw JSON array — no quotes added, none needed.',
         'expressions': [
           {
@@ -585,6 +585,16 @@ E. PAGINATION WORKFLOW — you MUST do these two steps in order:
             'example': r'{"token": ${random.jwt}}',
           },
           {
+            'expression': r'${:paramName}',
+            'description':
+                'URL path parameter — use \${:name} in the endpoint path to capture a dynamic segment, '
+                'then reference it in the response body with the same \${:name}. '
+                'Example endpoint: /users/\${:id}/orders/\${:orderId}',
+            'outputType':
+                'string (already quoted) or number (no quotes) — auto-detected',
+            'example': r'Endpoint: /products/${:category}/${:id}  →  Body: {"category": ${:category}, "id": ${:id}}',
+          },
+          {
             'expression': r'${request.url.query.<key>}',
             'description': 'Query parameter value from the request',
             'outputType':
@@ -644,7 +654,7 @@ E. PAGINATION WORKFLOW — you MUST do these two steps in order:
           'steps': [
             'POST /api/projects  →  {"name": "User Service", "port": 8080}',
             r'POST /api/projects/:id/endpoints  →  {"endpoint": "/users", "method": "GET", "statusCode": 200, "responseBody": "[{\"id\": ${random.uuid}, \"name\": ${random.name}, \"email\": ${random.email}}]"}',
-            r'POST /api/projects/:id/endpoints  →  {"endpoint": "/users/:userId", "method": "GET", "statusCode": 200, "responseBody": "{\"id\": ${request.url.param.userId}, \"name\": ${random.name}}"}',
+            r'POST /api/projects/:id/endpoints  →  {"endpoint": "/users/${:userId}", "method": "GET", "statusCode": 200, "responseBody": "{\"id\": ${:userId}, \"name\": ${random.name}}"}',
             r'POST /api/projects/:id/endpoints  →  {"endpoint": "/users", "method": "POST", "statusCode": 201, "responseBody": "{\"id\": ${random.uuid}, \"name\": ${request.body.name}}"}',
             'POST /api/projects/:id/start',
           ],
