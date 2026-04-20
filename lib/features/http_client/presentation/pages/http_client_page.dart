@@ -649,6 +649,14 @@ class _SidebarListState extends State<_SidebarList> {
   final _selectedIds = <String>{};
   bool get _hasMultiSelection => _selectedIds.length > 1;
 
+  final _keyboardFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _keyboardFocusNode.dispose();
+    super.dispose();
+  }
+
   bool _isShiftHeld() => HardwareKeyboard.instance.isShiftPressed;
   bool _isCtrlHeld() =>
       HardwareKeyboard.instance.isControlPressed ||
@@ -754,8 +762,8 @@ class _SidebarListState extends State<_SidebarList> {
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
     return KeyboardListener(
-      focusNode: FocusNode(),
-      autofocus: true,
+      focusNode: _keyboardFocusNode,
+      autofocus: false,
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.delete ||

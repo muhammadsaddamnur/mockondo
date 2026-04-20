@@ -24,9 +24,11 @@ class RoutingCore {
     // placeholders like ${customdata.cities.jakarta} become literal path segments.
     // Resolve interpolation in the path, then strip any JSON-encoded string
     // quotes (e.g. /"wkwk" → /wkwk) since URL paths never contain quotes.
+    // ${:name} path parameter placeholders are converted to <name> for shelf_router.
     final endpoint = Interpolation()
         .excute(before: mockModel.endpoint, data: '')
-        .replaceAll('"', '');
+        .replaceAll('"', '')
+        .replaceAllMapped(RegExp(r'\$\{:(\w+)\}'), (m) => '<${m.group(1)}>');
 
     // Partition rules into pagination (at most one) and response overrides.
     final rules = mockModel.rules ?? [];

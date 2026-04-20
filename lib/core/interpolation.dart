@@ -336,6 +336,16 @@ class Interpolation {
         return _mathInterpolations(keys, data, match, request);
       }
 
+      // ${:paramName} — path parameter captured from the URL pattern (e.g. a/${:id}/detail)
+      if (key.startsWith(':') && request != null) {
+        final paramName = key.substring(1);
+        final params = request.context['shelf_router/params'] as Map<String, String>?;
+        final paramValue = params?[paramName] ?? '';
+        final parsed = num.tryParse(paramValue);
+        if (parsed != null) return parsed.toString();
+        return jsonEncode(paramValue);
+      }
+
       // Leave unrecognised placeholders unchanged.
       return match.group(0)!;
     });
